@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Project Umbra — Amberfall Grove</title>
+  <style>
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#0c1712;color:#ede5ca;font-family:Georgia,serif}
+    canvas{display:block;width:100%;height:100%;outline:none}
+    #welcome{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 15%,#475638 0%,#192b20 40%,#0c1712 80%);z-index:2}
+    .card{width:min(600px,90vw);text-align:center;padding:64px 40px;border:1px solid #a48a4d55;background:#102016aa;box-shadow:0 30px 100px #0005}
+    .eyebrow{font:11px system-ui;letter-spacing:.35em;color:#c0a770;text-transform:uppercase}
+    h1{font-weight:400;font-size:clamp(44px,7vw,74px);line-height:1.05;margin:23px 0 12px}h1 span{display:block;font-size:.43em;font-style:italic;color:#d3bd89;letter-spacing:.06em;margin-top:12px}
+    .line{width:68px;height:1px;background:#b89955;margin:32px auto}.copy{font:14px/1.9 system-ui;color:#aab6a3;margin:0 auto 28px;max-width:340px}
+    button{cursor:pointer;background:#c6ab70;color:#142219;border:1px solid #dfc996;font:600 12px system-ui;letter-spacing:.17em;padding:17px 32px;transition:background .2s}button:hover{background:#e2c88e}button:disabled{opacity:.5;cursor:wait}
+    #status{font:12px/1.6 system-ui;color:#afbea8;min-height:20px;margin-top:20px}progress{width:100%;height:3px;appearance:none;border:0;background:#263a2b;display:none;margin-top:24px}progress::-webkit-progress-bar{background:#263a2b}progress::-webkit-progress-value{background:#c6ab70}
+    .footer{position:absolute;bottom:24px;font:10px system-ui;letter-spacing:.12em;color:#7f927d;text-align:center;line-height:1.8;padding:0 20px}
+    #error{display:none;position:fixed;inset:20px 20px auto;z-index:5;background:#3c231e;border:1px solid #ae6653;padding:20px;font:14px/1.6 system-ui;white-space:pre-wrap;color:#ffe7d0}
+  </style>
+</head>
+<body>
+  <canvas id="game" tabindex="0" aria-label="Project Umbra game. WASD move, left mouse fire, Q nova, Space dodge, E heal, Tab runes."></canvas>
+  <div id="welcome"><div class="card">
+    <div class="eyebrow">An adventure taking root</div>
+    <h1>Project Umbra<span>Amberfall Grove</span></h1>
+    <div class="line"></div>
+    <p class="copy">Follow the old pilgrim road.<br>Shape your arrows. Restore the restless grove.</p>
+    <button id="enter">ENTER THE GROVE</button>
+    <progress id="progress" value="0" max="1"></progress>
+    <div id="status">Desktop browser recommended · Keyboard &amp; mouse</div>
+  </div><div class="footer">PRE-ALPHA 0.1.0 · SINGLE-PLAYER PROTOTYPE<br>WASD MOVE &nbsp; / &nbsp; MOUSE AIM &nbsp; / &nbsp; SPACE QUICKSTEP</div></div>
+  <div id="error" role="alert"></div>
+  <script>
+    const canvas=document.querySelector('#game'),enter=document.querySelector('#enter'),status=document.querySelector('#status'),progress=document.querySelector('#progress');
+    canvas.addEventListener('contextmenu',event=>event.preventDefault());
+    function showError(message){document.querySelector('#error').style.display='block';document.querySelector('#error').textContent=String(message);status.textContent='The grove could not load. See the message above.';}
+    enter.addEventListener('click',()=>{
+      enter.disabled=true;enter.textContent='OPENING THE PATH';progress.style.display='block';
+      const script=document.createElement('script');script.src='Build/@@BUILD_NAME@@.loader.js';
+      script.onerror=()=>showError('Unity loader could not be downloaded. Check the Web build and local server.');
+      script.onload=()=>createUnityInstance(canvas,{
+        dataUrl:'Build/@@BUILD_NAME@@.data',frameworkUrl:'Build/@@BUILD_NAME@@.framework.js',codeUrl:'Build/@@BUILD_NAME@@.wasm',
+        streamingAssetsUrl:'StreamingAssets',companyName:'Project Umbra',productName:'Project Umbra',productVersion:'0.1.0',
+        devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5),
+        showBanner:(message,type)=>{if(type==='error')showError(message);else console.warn(message);}
+      },value=>{progress.value=value;status.textContent=value<.9?'Gathering the forest… '+Math.round(value*100)+'%':'Waking the grove…';})
+      .then(instance=>{window.umbra=instance;document.querySelector('#welcome').style.display='none';canvas.focus();})
+      .catch(showError);
+      document.body.appendChild(script);
+    });
+  </script>
+</body>
+</html>

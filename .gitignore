@@ -29,3 +29,5 @@ crash-report/
 .umbra-*
 TestResults/
 Recordings/
+__pycache__/
+*.pyc

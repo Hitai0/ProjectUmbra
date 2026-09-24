@@ -47,6 +47,8 @@ Install the **Web Build Support** module for this Unity version. Stop Play Mode 
 
 For local testing, run `python Tools/serve_web.py` from the repository and visit **http://127.0.0.1:8080**. Do not open the generated HTML via `file://`.
 
+The local server presents a full-window branded launcher from `Tools/web_shell.html`; click **Enter the Grove** to load the game. Unity's generated `Builds/Web/index.html` remains available for ordinary static deployment. The launcher assumes the uncompressed filenames produced by this project's build configuration.
+
 The prototype uses uncompressed Web build files for uncomplicated local serving. Before hosting at scale, configure compression headers, inspect file-size limits, and test target browsers. A Web build is not automatically a multiplayer game server.
 
 ## Validation

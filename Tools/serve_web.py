@@ -9,6 +9,16 @@ if not (root/'index.html').exists():
     raise SystemExit('Build first using Unity menu: Umbra > Build Web prototype')
 mimetypes.add_type('application/wasm','.wasm')
 class Handler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in ('/','/index.html'):
+            loader=next((root/'Build').glob('*.loader.js'),None)
+            if loader is None:
+                self.send_error(503,'Unity build is incomplete');return
+            build_name=loader.name.removesuffix('.loader.js')
+            html=(Path(__file__).parent/'web_shell.html').read_text(encoding='utf-8').replace('@@BUILD_NAME@@',build_name).encode('utf-8')
+            self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(html)));self.end_headers();self.wfile.write(html)
+        else:
+            super().do_GET()
     def end_headers(self):
         self.send_header('Cross-Origin-Opener-Policy','same-origin')
         self.send_header('Cross-Origin-Embedder-Policy','require-corp')
