@@ -55,11 +55,13 @@ namespace Umbra
             float offsetX=(Screen.width-1600*scale)/2,offsetY=(Screen.height-900*scale)/2;
             GUI.matrix=Matrix4x4.TRS(new Vector3(offsetX,offsetY,0),Quaternion.identity,new Vector3(scale,scale,1));
             Panel(new(26,26,322,113));
+            if(GUI.Button(new Rect(26,26,322,113),GUIContent.none,GUIStyle.none)) Game.StatsPanel=!Game.StatsPanel;
             Box(new(39,39,64,82),new(.15f,.20f,.14f));
             GUI.DrawTexture(new Rect(43,38,56,84),portrait,ScaleMode.ScaleToFit);
             Label(119,39,"WANDERER",heading);
             Label(278,39,"Lv. "+Game.Level,heading,gold);
-            Label(119,59,"Wayfarer  /  Ranger",small,muted);
+            if(Game.StatPoints>0) Label(260,59,"+"+Game.StatPoints+" PTS",small,mint);
+            else Label(119,59,"Wayfarer  /  Novice",small,muted);
             Bar(119,83,210,(float)Game.Health/Game.MaxHealth,new(.70f,.29f,.22f));
             Label(119,96,Game.Health+" / "+Game.MaxHealth+" HP",small);
             Label(243,96,Game.Experience+" XP",small,gold);
@@ -68,7 +70,11 @@ namespace Umbra
             Label(640,25,"P R O J E C T   U M B R A",heading,cream,450);
             Label(686,46,"A M B E R F A L L   G R O V E",small,muted,400);
             int mins=(int)(Game.RunTimer/60f), secs=(int)(Game.RunTimer%60f);
-            Label(732,67,string.Format("{0:00}:{1:00}", mins, secs),number,mint,200);
+            Label(720,67,string.Format("{0:00}:{1:00} / 15:00", mins, secs),number,mint,200);
+
+            Panel(new(1015,26,115,52));
+            string statsLabel = Game.StatPoints>0 ? "STATS ["+Game.StatPoints+"]" : "STATS  [C]";
+            if(Button(new(1023,36,99,31), statsLabel, Game.StatsPanel || Game.StatPoints>0)) Game.StatsPanel=!Game.StatsPanel;
 
             Panel(new(1140,26,115,52));
             if(Button(new(1148,36,99,31),Game.AutoAim?"AIM: AUTO":"AIM: MANUAL",Game.AutoAim))Game.AutoAim=!Game.AutoAim;
@@ -124,6 +130,7 @@ namespace Umbra
 
             if(Game.RunePanel)DrawRunes();
             if(Game.HelpPanel)DrawGuide();
+            if(Game.StatsPanel)DrawStats();
             if(Game.Drafting)DrawDraft();
             if(Game.Paused)
             {
@@ -205,22 +212,70 @@ namespace Umbra
             if(Button(new(945,589,246,34),"BACK TO THE GROVE  [TAB]"))Game.RunePanel=false;
             Label(409,596,"Rune choice is saved on this device.",small,muted);
         }
+        void DrawStats()
+        {
+            Box(new Rect(0,0,1600,900),new Color(0,0,0,.72f));
+            Panel(new(460,130,680,640));
+            Label(570,155,"C H A R A C T E R   S T A T U S",title,gold);
+            Label(525,205,"NOVICE  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)",text,cream);
+
+            // Points Banner
+            Panel(new(490,240,620,48));
+            bool hasPts = Game.StatPoints > 0;
+            Label(510,252,"AVAILABLE STAT POINTS:  " + Game.StatPoints,heading,hasPts?mint:muted);
+            if(Button(new(930,248,160,32),"RESET STATS (FREE)")) Game.ResetStats();
+
+            // 6 Stats rows
+            CombatRules.StatKind[] stats = (CombatRules.StatKind[])System.Enum.GetValues(typeof(CombatRules.StatKind));
+            float startY = 302;
+            for(int i = 0; i < stats.Length; i++)
+            {
+                var s = stats[i];
+                float y = startY + i * 58;
+                Box(new(490, y, 620, 50), new Color(.07f,.11f,.09f,.92f));
+                Box(new(490, y+48, 620, 2), new Color(gold.r,gold.g,gold.b,.25f));
+
+                Label(510, y+13, s.ToString(), heading, gold);
+                Label(570, y+13, Game.GetStat(s).ToString("00"), number, cream);
+
+                string desc = s switch
+                {
+                    CombatRules.StatKind.STR => "+" + ((Game.STR-1)*2) + "% Base Damage  •  Knockback Power",
+                    CombatRules.StatKind.AGI => "+" + ((Game.AGI-1)*1.5f).ToString("0.0") + "% Atk Speed  •  +" + ((Game.AGI-1)*0.4f).ToString("0.0") + "% Move Speed",
+                    CombatRules.StatKind.VIT => "+" + ((Game.VIT-1)*8) + " Max HP  •  +" + ((Game.VIT-1)*0.2f).ToString("0.0") + " HP/s Regen",
+                    CombatRules.StatKind.INT => "-" + ((Game.INT-1)*1.2f).ToString("0.0") + "% Cooldowns (Max 50%)",
+                    CombatRules.StatKind.DEX => "+" + ((Game.DEX-1)*2) + "% Arrow Speed  •  +" + ((Game.DEX-1)*1.5f).ToString("0.0") + "% Arrow Dmg",
+                    _ => "+" + ((Game.LUK-1)*0.5f).ToString("0.0") + "% Crit Chance (1.75x)  •  Rare Boon Luck"
+                };
+                Label(625, y+16, desc, small, muted, 360);
+
+                if(hasPts)
+                {
+                    if(Button(new(1030, y+9, 65, 32), "+1", true))
+                    {
+                        Game.TryAddStat(s);
+                    }
+                }
+            }
+
+            if(Button(new(700, 672, 200, 42), "CLOSE  [C]")) Game.StatsPanel = false;
+        }
         void DrawGuide()
         {
-            Box(new(0,0,1600,900),new(0,0,0,.45f));Panel(new(480,228,640,455));
+            Box(new(0,0,1600,900),new(0,0,0,.45f));Panel(new(480,228,640,460));
             Label(516,254,"WELCOME, WANDERER",title);
             string[] lines={"WASD / Arrow keys     Move through the grove",
                             "Right mouse                 Travel to a point (no pathfinding)",
                             "Left mouse / Auto-aim  Fire spirit arrows at nearby enemies",
+                            "C                                    Character Stats: distribute STR, AGI, VIT, INT, DEX, LUK",
                             "Q                                   Wind Nova: a ring of arrows",
                             "Space                            Quickstep with brief invulnerability",
                             "E                                    Mend: restore health",
                             "R / 1 / 2 / 3                   Change your support rune",
                             "Tab                                Open the rune collection",
-                            "Collect amber shards & level up to draft powerful boons!",
-                            "Enemies spawn in scaling hordes. Survive as long as you can."};
-            for(int i=0;i<lines.Length;i++)Label(516,316+i*27,lines[i],i>7?small:text,i>7?muted:cream);
-            if(Button(new(516,618,568,38),"BEGIN EXPLORING  [H]"))Game.HelpPanel=false;
+                            "Survive up to 15:00. Level up, draft boons, allocate stats!"};
+            for(int i=0;i<lines.Length;i++)Label(516,314+i*27,lines[i],i>7?small:text,i>7?muted:cream);
+            if(Button(new(516,624,568,38),"BEGIN EXPLORING  [H]")) Game.HelpPanel=false;
         }
     }
 }

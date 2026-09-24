@@ -11,14 +11,23 @@ namespace Umbra
 {
     public sealed class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.1.3";
+        public const string Version = "0.1.4";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
-        public int MaxHealth => CombatRules.MaxHealth + MaxHealthBonus;
+        public int MaxHealth => CombatRules.MaxHealth + CombatRules.BonusHealthFromVit(VIT) + MaxHealthBonus;
         public int Health { get; private set; } = CombatRules.MaxHealth;
-        public int Level { get; private set; } = 1;
-        public int Experience { get; private set; }
+        public int BaseLevel { get; private set; } = 1;
+        public int BaseExperience { get; private set; }
+        public int Level => BaseLevel;
+        public int Experience => BaseExperience;
+        public int StatPoints { get; private set; }
+        public int STR { get; private set; } = 1;
+        public int AGI { get; private set; } = 1;
+        public int VIT { get; private set; } = 1;
+        public int INT { get; private set; } = 1;
+        public int DEX { get; private set; } = 1;
+        public int LUK { get; private set; } = 1;
         public int Kills { get; private set; }
         public int Shards { get; private set; }
         public int Collected { get; private set; }
@@ -34,6 +43,7 @@ namespace Umbra
         public float RunTimer { get; private set; }
         public bool RunePanel;
         public bool HelpPanel;
+        public bool StatsPanel;
         public bool Paused;
         public bool Ready { get; private set; }
         public string Notice { get; private set; } = "Follow the old road. The grove remembers.";
@@ -60,6 +70,7 @@ namespace Umbra
             public float expiry;
             public int damage, remaining;
             public RuneKind rune;
+            public bool isCrit;
             public HashSet<Enemy> hit = new();
         }
         sealed class Loot { public Transform root; public float phase; }
@@ -83,16 +94,87 @@ namespace Umbra
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
         bool walkingTo, questComplete;
         float attackAt, volleyAt, dashAt, healAt, invulnerableUntil, dashUntil, lastHitAt, elapsed;
-        float nextHordeSpawn = 2.5f, nextNovaPulse;
+        float nextHordeSpawn = 2.5f, nextNovaPulse, nextRegen;
         readonly Vector3 cameraOffset = new(0, 18.5f, -15.5f);
         readonly Color gold = new(1f, .72f, .27f);
         readonly Color mint = new(.46f, .91f, .72f);
 
+        public bool TryAddStat(CombatRules.StatKind stat)
+        {
+            if (StatPoints <= 0) return false;
+            StatPoints--;
+            switch (stat)
+            {
+                case CombatRules.StatKind.STR: STR++; break;
+                case CombatRules.StatKind.AGI: AGI++; break;
+                case CombatRules.StatKind.VIT: VIT++; Health = Mathf.Min(MaxHealth, Health + 8); break;
+                case CombatRules.StatKind.INT: INT++; break;
+                case CombatRules.StatKind.DEX: DEX++; break;
+                case CombatRules.StatKind.LUK: LUK++; break;
+            }
+            SaveProfile();
+            Notify(stat + " increased to " + GetStat(stat));
+            return true;
+        }
+
+        public void ResetStats()
+        {
+            int spent = (STR - 1) + (AGI - 1) + (VIT - 1) + (INT - 1) + (DEX - 1) + (LUK - 1);
+            if (spent <= 0) return;
+            StatPoints += spent;
+            STR = AGI = VIT = INT = DEX = LUK = 1;
+            Health = Mathf.Min(MaxHealth, Health);
+            SaveProfile();
+            Notify("Stats reset! " + StatPoints + " points refunded.");
+        }
+
+        public int GetStat(CombatRules.StatKind stat) => stat switch
+        {
+            CombatRules.StatKind.STR => STR,
+            CombatRules.StatKind.AGI => AGI,
+            CombatRules.StatKind.VIT => VIT,
+            CombatRules.StatKind.INT => INT,
+            CombatRules.StatKind.DEX => DEX,
+            _ => LUK
+        };
+
+        public void LoadProfile()
+        {
+            Shards = PlayerPrefs.GetInt("Umbra.Shards", 0);
+            Rune = (RuneKind)Mathf.Clamp(PlayerPrefs.GetInt("Umbra.Rune", 0), 0, 2);
+            BaseLevel = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.BaseLevel", 1));
+            BaseExperience = PlayerPrefs.GetInt("Umbra.BaseExperience", 0);
+            STR = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.STR", 1));
+            AGI = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.AGI", 1));
+            VIT = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.VIT", 1));
+            INT = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.INT", 1));
+            DEX = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.DEX", 1));
+            LUK = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.LUK", 1));
+            int totalEarned = (BaseLevel - 1) * CombatRules.StatPointsPerLevel;
+            int spent = (STR - 1) + (AGI - 1) + (VIT - 1) + (INT - 1) + (DEX - 1) + (LUK - 1);
+            StatPoints = Mathf.Max(0, totalEarned - spent);
+            Health = MaxHealth;
+        }
+
+        public void SaveProfile()
+        {
+            PlayerPrefs.SetInt("Umbra.Shards", Shards);
+            PlayerPrefs.SetInt("Umbra.Rune", (int)Rune);
+            PlayerPrefs.SetInt("Umbra.BaseLevel", BaseLevel);
+            PlayerPrefs.SetInt("Umbra.BaseExperience", BaseExperience);
+            PlayerPrefs.SetInt("Umbra.STR", STR);
+            PlayerPrefs.SetInt("Umbra.AGI", AGI);
+            PlayerPrefs.SetInt("Umbra.VIT", VIT);
+            PlayerPrefs.SetInt("Umbra.INT", INT);
+            PlayerPrefs.SetInt("Umbra.DEX", DEX);
+            PlayerPrefs.SetInt("Umbra.LUK", LUK);
+            PlayerPrefs.Save();
+        }
+
         void Start()
         {
             Application.targetFrameRate = 60;
-            Shards = PlayerPrefs.GetInt("Umbra.Shards", 0);
-            Rune = (RuneKind)Mathf.Clamp(PlayerPrefs.GetInt("Umbra.Rune", 0), 0, 2);
+            LoadProfile();
             BuildWorld();
             gameObject.AddComponent<UmbraHud>().Game = this;
             Ready = true;
@@ -406,6 +488,7 @@ namespace Umbra
                 if(keyboard.escapeKey.wasPressedThisFrame){Paused=!Paused; Time.timeScale=Paused?0:1;}
                 if(keyboard.tabKey.wasPressedThisFrame) RunePanel=!RunePanel;
                 if(keyboard.hKey.wasPressedThisFrame) HelpPanel=!HelpPanel;
+                if(keyboard.cKey.wasPressedThisFrame) StatsPanel=!StatsPanel;
             }
             if(Drafting || Paused) return;
             float dt=Time.deltaTime; elapsed+=dt; RunTimer+=dt;
@@ -455,6 +538,12 @@ namespace Umbra
             actorVisual.localPosition=new(0,moving?Mathf.Abs(Mathf.Sin(elapsed*12))*.05f:0,0);
             playerSprite.color=Time.time<invulnerableUntil?new Color(.62f,1,1):Color.white;
             UpdateHorde(dt); UpdateEnemies(dt); UpdateShots(dt); UpdateLoot(dt); UpdateRings();
+            float regenRate = CombatRules.HealthRegenPerSecond(VIT);
+            if(regenRate > 0 && Health < MaxHealth && Time.time >= nextRegen)
+            {
+                nextRegen = Time.time + 1f;
+                Health = Mathf.Min(MaxHealth, Health + Mathf.CeilToInt(regenRate));
+            }
             if(Time.time-lastHitAt>6&&Health<MaxHealth) Health=Mathf.Min(MaxHealth,Health+(Mathf.FloorToInt(elapsed*2)!=Mathf.FloorToInt((elapsed-dt)*2)?1:0));
             if(!questComplete&&Kills>=6){questComplete=true;Shards+=25;SaveCollection();Notify("GROVE RESTORED  /  +25 amber shards");Pulse(Player.position,4,mint,.8f);}
         }
@@ -472,7 +561,7 @@ namespace Umbra
         }
         bool PointerOverHud()
         {
-            if(Drafting||RunePanel||HelpPanel||Paused)return true;
+            if(Drafting||RunePanel||HelpPanel||StatsPanel||Paused)return true;
             if(Mouse.current==null)return false;
             Vector2 p=Mouse.current.position.ReadValue();
             return p.y<Screen.height*.16f || p.y>Screen.height*.85f || (p.x>Screen.width*.75f&&p.y>Screen.height*.45f);
@@ -492,47 +581,59 @@ namespace Umbra
         }
         public void MovePlayer(Vector3 delta)
         {
-            delta *= MoveSpeedMultiplier;
+            delta *= MoveSpeedMultiplier * (1f + CombatRules.MoveSpeedBonus(AGI));
             Vector3 p=Player.position;
             Vector3 x=p+new Vector3(delta.x,0,0); if(IsWalkable(x))p=x;
             Vector3 z=p+new Vector3(0,0,delta.z); if(IsWalkable(z))p=z;
             Player.position=p;
         }
-        public void SetRune(RuneKind rune){Rune=rune;SaveCollection();Notify(CombatRules.RuneName(rune)+" equipped");}
+        public void SetRune(RuneKind rune){Rune=rune;SaveProfile();Notify(CombatRules.RuneName(rune)+" equipped");}
         public bool TryAttack(Vector3 point)
         {
             if(Drafting||Paused||Time.time<attackAt)return false;
-            attackAt=Time.time+(CombatRules.AttackCooldown / AttackSpeedMultiplier);
+            float speedMod = AttackSpeedMultiplier * (1f + CombatRules.AttackSpeedBonus(AGI));
+            attackAt=Time.time+(CombatRules.AttackCooldown / speedMod);
             Vector3 dir=point-Player.position;dir.y=0;if(dir.sqrMagnitude<.01f)dir=facing;dir.Normalize();
             facing=dir;playerSprite.flipX=dir.x<0;
             int count=CombatRules.ProjectileCount(Rune) + BonusProjectiles;
-            for(int i=0;i<count;i++) Fire(Quaternion.Euler(0,(i-(count-1)*.5f)*12,0)*dir,Rune,CombatRules.Damage(Rune,Level));
+            int baseDamage = CombatRules.Damage(Rune, Level, STR, DEX);
+            bool isCrit = Random.value < CombatRules.CritChance(LUK);
+            int finalDamage = isCrit ? Mathf.RoundToInt(baseDamage * CombatRules.CritMultiplier) : baseDamage;
+            for(int i=0;i<count;i++) Fire(Quaternion.Euler(0,(i-(count-1)*.5f)*12,0)*dir,Rune,finalDamage,isCrit);
             return true;
         }
-        void Fire(Vector3 direction,RuneKind rune,int damage)
+        void Fire(Vector3 direction,RuneKind rune,int damage,bool isCrit=false)
         {
-            var shot=new Shot{velocity=direction*16,damage=damage,rune=rune,remaining=rune==RuneKind.Pierce?3:1,expiry=Time.time+1.1f};
-            Color c=rune==RuneKind.Ember?new(1.8f,.55f,.12f):new(.6f,1.6f,1.2f);
-            var go=Shape("Spirit arrow",PrimitiveType.Cube,Player.position+Vector3.up*.6f,new(.055f,.055f,.8f),Mat("arrow"+rune,c,true),transform);
+            float speed = 16f * (1f + CombatRules.ProjectileSpeedBonus(DEX));
+            var shot=new Shot{velocity=direction*speed,damage=damage,rune=rune,isCrit=isCrit,remaining=rune==RuneKind.Pierce?3:1,expiry=Time.time+1.1f};
+            Color c=rune==RuneKind.Ember?new(1.8f,.55f,.12f):(isCrit?new(1.8f,1.3f,.3f):new(.6f,1.6f,1.2f));
+            var go=Shape("Spirit arrow",PrimitiveType.Cube,Player.position+Vector3.up*.6f,new(.055f,.055f,.8f),Mat("arrow"+rune+(isCrit?"crit":""),c,true),transform);
             go.transform.rotation=Quaternion.LookRotation(direction);
             shot.root=go.transform; shots.Add(shot);
         }
         public bool TryVolley()
         {
-            if(Drafting||Paused||Time.time<volleyAt)return false;volleyAt=Time.time+CombatRules.VolleyCooldown;
-            for(int i=0;i<12;i++)Fire(Quaternion.Euler(0,i*30,0)*Vector3.forward,Rune,CombatRules.Damage(Rune,Level));
+            if(Drafting||Paused||Time.time<volleyAt)return false;
+            float cdr = CombatRules.CooldownReduction(INT);
+            volleyAt=Time.time+CombatRules.VolleyCooldown*(1f-cdr);
+            int baseDamage = CombatRules.Damage(Rune, Level, STR, DEX);
+            for(int i=0;i<12;i++)Fire(Quaternion.Euler(0,i*30,0)*Vector3.forward,Rune,baseDamage);
             Pulse(Player.position,3.8f,mint,.5f);Notify("WIND NOVA");return true;
         }
         public bool TryDash()
         {
-            if(Drafting||Paused||Time.time<dashAt)return false;dashAt=Time.time+CombatRules.DashCooldown;
+            if(Drafting||Paused||Time.time<dashAt)return false;
+            float cdr = CombatRules.CooldownReduction(INT);
+            dashAt=Time.time+CombatRules.DashCooldown*(1f-cdr);
             dashUntil=Time.time+.18f;invulnerableUntil=Time.time+.28f;dashDirection=facing;
             Pulse(Player.position,1,mint,.28f);return true;
         }
         public bool TryHeal()
         {
             if(Drafting||Paused||Time.time<healAt||Health>=MaxHealth)return false;
-            healAt=Time.time+CombatRules.HealCooldown;Health=Mathf.Min(MaxHealth,Health+55);
+            float cdr = CombatRules.CooldownReduction(INT);
+            healAt=Time.time+CombatRules.HealCooldown*(1f-cdr);
+            Health=Mathf.Min(MaxHealth,Health+55);
             Popup(Player.position+Vector3.up,"+55",mint);Pulse(Player.position,2,mint,.6f);return true;
         }
         public Enemy FindNearestEnemy(Vector3 origin, float maxDistance)
@@ -620,24 +721,28 @@ namespace Umbra
                     Vector3 segment=after-before;
                     float t=Mathf.Clamp01(Vector3.Dot(p-before,segment)/Mathf.Max(.0001f,segment.sqrMagnitude));
                     if((before+segment*t-p).sqrMagnitude>(e.elite?.75f:.4f))continue;
-                    s.hit.Add(e);DamageEnemy(e,s.damage);s.remaining--;
+                    s.hit.Add(e);DamageEnemy(e,s.damage,s.isCrit);s.remaining--;
                     if(s.rune==RuneKind.Ember){Pulse(e.root.position,1.8f,new(1,.5f,.15f),.45f);foreach(var other in enemies)if(other!=e&&other.hp>0&&other.root.gameObject.activeSelf&&Vector3.Distance(other.root.position,e.root.position)<1.8f)DamageEnemy(other,s.damage/2);}
                     if(s.remaining<=0)break;
                 }
                 if(s.remaining<=0||Time.time>s.expiry){Destroy(s.root.gameObject);shots.RemoveAt(i);}
             }
         }
-        public void DamageEnemy(Enemy e,int damage)
+        public void DamageEnemy(Enemy e,int damage,bool isCrit=false)
         {
             if(e.hp<=0)return;e.hp-=damage;e.flashUntil=Time.time+.12f;
-            Popup(e.root.position+Vector3.up*1.2f,damage.ToString(),gold);
+            Popup(e.root.position+Vector3.up*1.2f,isCrit?"CRIT! "+damage:damage.ToString(),isCrit?new Color(1f,.88f,.25f):gold);
             if(e.hp>0)return;
             e.hp=0;
             e.root.gameObject.SetActive(false);e.windupUntil=0;Kills++;
-            Experience+=e.elite?50:20;
-            if(Experience>=CombatRules.ExperienceToLevel(Level))
+            int expGain = e.elite ? 50 : 20;
+            BaseExperience += expGain;
+            if(BaseExperience >= CombatRules.ExperienceToLevel(BaseLevel))
             {
-                Experience-=CombatRules.ExperienceToLevel(Level);
+                BaseExperience -= CombatRules.ExperienceToLevel(BaseLevel);
+                BaseLevel++;
+                StatPoints += CombatRules.StatPointsPerLevel;
+                SaveProfile();
                 TriggerLevelUp();
             }
             var item=Shape("Amber shard",PrimitiveType.Cube,e.root.position+Vector3.up*.35f,Vector3.one*.22f,Mat("loot amber",new(1.6f,.8f,.19f),true),transform);
@@ -645,11 +750,10 @@ namespace Umbra
         }
         public void TriggerLevelUp()
         {
-            Level++;
             Health = MaxHealth;
-            Notify("LEVEL " + Level + "! CHOOSE A BOON");
+            Notify("BASE LEVEL " + BaseLevel + "! +3 STAT POINTS");
             Pulse(Player.position, 4, gold, .8f);
-            ActiveDraft = CombatRules.RollPerks(3);
+            ActiveDraft = CombatRules.RollPerks(3, LUK);
             Drafting = true;
             Time.timeScale = 0;
         }
@@ -753,7 +857,7 @@ namespace Umbra
                 for(int j=0;j<49;j++){float a=j*Mathf.PI*2/48;r.line.SetPosition(j,r.center+new Vector3(Mathf.Sin(a)*radius,.045f,Mathf.Cos(a)*radius));}
             }
         }
-        void SaveCollection(){PlayerPrefs.SetInt("Umbra.Shards",Shards);PlayerPrefs.SetInt("Umbra.Rune",(int)Rune);PlayerPrefs.Save();}
+        void SaveCollection() => SaveProfile();
         void OnDestroy(){Time.timeScale=1;foreach(var o in owned)if(o)Destroy(o);}
 
         public IEnumerator SmokeTest(Action<string> complete)
@@ -773,6 +877,8 @@ namespace Umbra
             Health=MaxHealth;invulnerableUntil=0;HurtPlayer(30);if(!TryHeal()||Health!=MaxHealth)throw new Exception("Heal failed");checks.Add("healing");
             if(!TryVolley()||TryVolley())throw new Exception("Cooldown failed");checks.Add("cooldown enforcement");
             Health=1;invulnerableUntil=0;HurtPlayer(2);if(Health!=MaxHealth)throw new Exception("Respawn failed");checks.Add("player respawn");
+            int prevStr=STR;StatPoints+=3;if(!TryAddStat(CombatRules.StatKind.STR)||STR!=prevStr+1)throw new Exception("Stat add failed");checks.Add("RO stat allocation");
+            ResetStats();if(STR!=1)throw new Exception("Stat reset failed");checks.Add("RO free stat reset");
             Player.position=start;Shards=originalShards;SaveCollection();complete("PASS: "+string.Join(", ",checks));
         }
     }

@@ -5,12 +5,31 @@ namespace Umbra
 
     public static class CombatRules
     {
+        public enum StatKind { STR, AGI, VIT, INT, DEX, LUK }
+
         public const float AttackCooldown = .36f;
         public const float VolleyCooldown = 4.5f;
         public const float DashCooldown = 1.25f;
         public const float HealCooldown = 12f;
         public const int MaxHealth = 120;
-        public static int Damage(RuneKind rune, int level) => (rune == RuneKind.Scatter ? 13 : 23) + (level - 1) * 3;
+        public const int StatPointsPerLevel = 3;
+        public const float CritMultiplier = 1.75f;
+
+        public static float DamageMultiplier(int str, int dex) => 1f + (str - 1) * 0.02f + (dex - 1) * 0.015f;
+        public static float AttackSpeedBonus(int agi) => (agi - 1) * 0.015f;
+        public static float MoveSpeedBonus(int agi) => (agi - 1) * 0.004f;
+        public static int BonusHealthFromVit(int vit) => (vit - 1) * 8;
+        public static float HealthRegenPerSecond(int vit) => (vit - 1) * 0.2f;
+        public static float CooldownReduction(int intel) => UnityEngine.Mathf.Min(0.50f, (intel - 1) * 0.012f);
+        public static float ProjectileSpeedBonus(int dex) => (dex - 1) * 0.02f;
+        public static float CritChance(int luk) => (luk - 1) * 0.005f;
+
+        public static int Damage(RuneKind rune, int level, int str = 1, int dex = 1)
+        {
+            int baseDmg = (rune == RuneKind.Scatter ? 13 : 23) + (level - 1) * 3;
+            return UnityEngine.Mathf.RoundToInt(baseDmg * DamageMultiplier(str, dex));
+        }
+
         public static int ProjectileCount(RuneKind rune) => rune == RuneKind.Scatter ? 3 : 1;
         public static int ExperienceToLevel(int level) => 60 + (level - 1) * 35;
         public static string RuneName(RuneKind rune) => rune switch
@@ -65,7 +84,7 @@ namespace Umbra
             new(PerkKind.WindNovaPulse, "Gale Ward", "PASSIVE BOON", "Automatically unleashes a radial Wind Nova every 8 seconds.", "EPIC")
         };
 
-        public static System.Collections.Generic.List<Perk> RollPerks(int count = 3)
+        public static System.Collections.Generic.List<Perk> RollPerks(int count = 3, int luk = 1)
         {
             var list = new System.Collections.Generic.List<Perk>(AllPerks);
             var result = new System.Collections.Generic.List<Perk>();

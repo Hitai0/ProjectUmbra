@@ -67,7 +67,7 @@ namespace Umbra.Editor
             QualitySettings.SetQualityLevel(old);
             QualitySettings.vSyncCount=0;
             PlayerSettings.companyName="Project Umbra";PlayerSettings.productName="Project Umbra";
-            PlayerSettings.bundleVersion="0.1.3";
+            PlayerSettings.bundleVersion="0.1.4";
             PlayerSettings.defaultScreenWidth=1600;PlayerSettings.defaultScreenHeight=900;
             PlayerSettings.runInBackground=true;
             PlayerSettings.WebGL.compressionFormat=WebGLCompressionFormat.Disabled;
@@ -124,9 +124,31 @@ namespace Umbra.Editor
         [MenuItem("Umbra/Run gameplay smoke tests (Play Mode)")]
         public static void RunSmokeTests()
         {
-            var game=UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>();
-            if(!EditorApplication.isPlaying||!game)throw new InvalidOperationException("Enter Play Mode in Amberfall first.");
-            game.StartCoroutine(game.SmokeTest(result=>{File.WriteAllText(".umbra-test",result);Debug.Log(result);}));
+            if(!EditorApplication.isPlaying)
+            {
+                EditorApplication.isPlaying = true;
+                EditorApplication.playModeStateChanged += OnPlayStateChangedForTest;
+                return;
+            }
+            ExecuteSmokeTests();
+        }
+        static void OnPlayStateChangedForTest(PlayModeStateChange state)
+        {
+            if(state == PlayModeStateChange.EnteredPlayMode)
+            {
+                EditorApplication.playModeStateChanged -= OnPlayStateChangedForTest;
+                EditorApplication.delayCall += ExecuteSmokeTests;
+            }
+        }
+        static void ExecuteSmokeTests()
+        {
+            var game = UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>();
+            if(!game)
+            {
+                EditorApplication.delayCall += ExecuteSmokeTests;
+                return;
+            }
+            game.StartCoroutine(game.SmokeTest(result => { File.WriteAllText(".umbra-test", result); Debug.Log(result); }));
         }
         [MenuItem("Umbra/Capture prototype (Play Mode)")]
         public static void Capture()
