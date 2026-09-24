@@ -9,13 +9,13 @@ using Random = UnityEngine.Random;
 
 namespace Umbra
 {
-    public sealed class UmbraPrototype : MonoBehaviour
+    public sealed partial class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.1.4";
+        public const string Version = "0.2.0";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
-        public int MaxHealth => CombatRules.MaxHealth + CombatRules.BonusHealthFromVit(VIT) + MaxHealthBonus;
+        public int MaxHealth => CombatRules.MaxHealth + CombatRules.BonusHealthFromVit(VIT) + MaxHealthBonus + SupplyRank*5;
         public int Health { get; private set; } = CombatRules.MaxHealth;
         public int BaseLevel { get; private set; } = 1;
         public int BaseExperience { get; private set; }
@@ -61,7 +61,8 @@ namespace Umbra
             public Vector3 home;
             public int hp, maxHp;
             public float attackAt, windupUntil, respawnAt, flashUntil, phase;
-            public bool elite;
+            public bool elite, boss;
+            public float burnUntil, burnTick; public int burnDamage;
         }
         sealed class Shot
         {
@@ -92,16 +93,16 @@ namespace Umbra
         Sprite[] rangerFrames;
         Sprite sproutSprite, mushroomSprite;
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
-        bool walkingTo, questComplete;
+        bool walkingTo;
         float attackAt, volleyAt, dashAt, healAt, invulnerableUntil, dashUntil, lastHitAt, elapsed;
-        float nextHordeSpawn = 2.5f, nextNovaPulse, nextRegen;
+        float nextHordeSpawn = 2.5f, nextNovaPulse;
         readonly Vector3 cameraOffset = new(0, 18.5f, -15.5f);
         readonly Color gold = new(1f, .72f, .27f);
         readonly Color mint = new(.46f, .91f, .72f);
 
         public bool TryAddStat(CombatRules.StatKind stat)
         {
-            if (StatPoints <= 0) return false;
+            if (Phase != RunPhase.Camp || StatPoints <= 0 || GetStat(stat) >= 99 || !Enum.IsDefined(typeof(CombatRules.StatKind), stat)) return false;
             StatPoints--;
             switch (stat)
             {
@@ -119,6 +120,7 @@ namespace Umbra
 
         public void ResetStats()
         {
+            if (Phase != RunPhase.Camp) return;
             int spent = (STR - 1) + (AGI - 1) + (VIT - 1) + (INT - 1) + (DEX - 1) + (LUK - 1);
             if (spent <= 0) return;
             StatPoints += spent;
@@ -140,26 +142,30 @@ namespace Umbra
 
         public void LoadProfile()
         {
-            Shards = PlayerPrefs.GetInt("Umbra.Shards", 0);
+            Shards = Mathf.Max(0, PlayerPrefs.GetInt("Umbra.Shards", 0));
             Rune = (RuneKind)Mathf.Clamp(PlayerPrefs.GetInt("Umbra.Rune", 0), 0, 2);
-            BaseLevel = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.BaseLevel", 1));
-            BaseExperience = PlayerPrefs.GetInt("Umbra.BaseExperience", 0);
-            STR = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.STR", 1));
-            AGI = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.AGI", 1));
-            VIT = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.VIT", 1));
-            INT = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.INT", 1));
-            DEX = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.DEX", 1));
-            LUK = Mathf.Max(1, PlayerPrefs.GetInt("Umbra.LUK", 1));
+            BaseLevel = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.BaseLevel", 1), 1, 99);
+            BaseExperience = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.BaseExperience", 0), 0, CombatRules.ExperienceToLevel(BaseLevel)-1);
+            STR = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.STR", 1), 1, 99);
+            AGI = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.AGI", 1), 1, 99);
+            VIT = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.VIT", 1), 1, 99);
+            INT = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.INT", 1), 1, 99);
+            DEX = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.DEX", 1), 1, 99);
+            LUK = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.LUK", 1), 1, 99);
             int totalEarned = (BaseLevel - 1) * CombatRules.StatPointsPerLevel;
             int spent = (STR - 1) + (AGI - 1) + (VIT - 1) + (INT - 1) + (DEX - 1) + (LUK - 1);
-            StatPoints = Mathf.Max(0, totalEarned - spent);
+            if(spent > totalEarned) { STR=AGI=VIT=INT=DEX=LUK=1; spent=0; }
+            StatPoints = totalEarned - spent;
+            LoadCampaignProfile();
             Health = MaxHealth;
         }
 
         public void SaveProfile()
         {
+            if(suppressSave) return;
+            SaveCampaignProfile();
             PlayerPrefs.SetInt("Umbra.Shards", Shards);
-            PlayerPrefs.SetInt("Umbra.Rune", (int)Rune);
+            PlayerPrefs.SetInt("Umbra.Rune", (int)(Phase==RunPhase.Running?campRune:Rune));
             PlayerPrefs.SetInt("Umbra.BaseLevel", BaseLevel);
             PlayerPrefs.SetInt("Umbra.BaseExperience", BaseExperience);
             PlayerPrefs.SetInt("Umbra.STR", STR);
@@ -178,6 +184,7 @@ namespace Umbra
             BuildWorld();
             gameObject.AddComponent<UmbraHud>().Game = this;
             Ready = true;
+            EnterCamp();
         }
 
         Material Mat(string key, Color color, bool unlit = false)
@@ -485,17 +492,20 @@ namespace Umbra
             var keyboard=Keyboard.current;
             if(keyboard!=null)
             {
-                if(keyboard.escapeKey.wasPressedThisFrame){Paused=!Paused; Time.timeScale=Paused?0:1;}
+                if(keyboard.escapeKey.wasPressedThisFrame) TogglePause();
                 if(keyboard.tabKey.wasPressedThisFrame) RunePanel=!RunePanel;
                 if(keyboard.hKey.wasPressedThisFrame) HelpPanel=!HelpPanel;
                 if(keyboard.cKey.wasPressedThisFrame) StatsPanel=!StatsPanel;
             }
-            if(Drafting || Paused) return;
+            SyncPause();
+            if(Phase!=RunPhase.Running || IsModal) return;
             float dt=Time.deltaTime; elapsed+=dt; RunTimer+=dt;
+            UpdateRunDirector(dt);
+            if(Phase!=RunPhase.Running || Drafting) return;
             if(HasNovaPulse && Time.time >= nextNovaPulse)
             {
-                nextNovaPulse = Time.time + 8f;
-                TryVolley();
+                nextNovaPulse = Time.time + 10f;
+                CastNova();
             }
             Vector2 input=Vector2.zero;
             if(keyboard!=null)
@@ -536,16 +546,15 @@ namespace Umbra
             if(moving) playerSprite.flipX=facing.x<-.05f;
             playerSprite.sprite=moving?rangerFrames[1+(int)(elapsed*9)%2]:rangerFrames[0];
             actorVisual.localPosition=new(0,moving?Mathf.Abs(Mathf.Sin(elapsed*12))*.05f:0,0);
-            playerSprite.color=Time.time<invulnerableUntil?new Color(.62f,1,1):Color.white;
-            UpdateHorde(dt); UpdateEnemies(dt); UpdateShots(dt); UpdateLoot(dt); UpdateRings();
-            float regenRate = CombatRules.HealthRegenPerSecond(VIT);
-            if(regenRate > 0 && Health < MaxHealth && Time.time >= nextRegen)
-            {
-                nextRegen = Time.time + 1f;
-                Health = Mathf.Min(MaxHealth, Health + Mathf.CeilToInt(regenRate));
-            }
-            if(Time.time-lastHitAt>6&&Health<MaxHealth) Health=Mathf.Min(MaxHealth,Health+(Mathf.FloorToInt(elapsed*2)!=Mathf.FloorToInt((elapsed-dt)*2)?1:0));
-            if(!questComplete&&Kills>=6){questComplete=true;Shards+=25;SaveCollection();Notify("GROVE RESTORED  /  +25 amber shards");Pulse(Player.position,4,mint,.8f);}
+            playerSprite.color=Time.time<invulnerableUntil?new Color(.62f,1,1):Class==HeroClass.Mage?new Color(.82f,.80f,1):Class==HeroClass.Swordsman?new Color(1,.85f,.75f):Color.white;
+            UpdateHorde(dt); UpdateEnemies(dt);
+            if(Phase!=RunPhase.Running)return;
+            UpdateShots(dt);
+            if(Phase!=RunPhase.Running)return;
+            UpdateLoot(dt); UpdateRings();
+            regenBank += CombatRules.HealthRegenPerSecond(VIT)*dt;
+            int regen = Mathf.FloorToInt(regenBank);
+            if(regen>0){Health=Mathf.Min(MaxHealth,Health+regen);regenBank-=regen;}
         }
 
         void LateUpdate()
@@ -561,7 +570,7 @@ namespace Umbra
         }
         bool PointerOverHud()
         {
-            if(Drafting||RunePanel||HelpPanel||StatsPanel||Paused)return true;
+            if(Phase!=RunPhase.Running||IsModal)return true;
             if(Mouse.current==null)return false;
             Vector2 p=Mouse.current.position.ReadValue();
             return p.y<Screen.height*.16f || p.y>Screen.height*.85f || (p.x>Screen.width*.75f&&p.y>Screen.height*.45f);
@@ -573,6 +582,7 @@ namespace Umbra
         }
         public bool IsWalkable(Vector3 p)
         {
+            if(BossActive&&(Mathf.Abs(p.x)>4.8f||p.z< -7||p.z>7))return false;
             if(Mathf.Abs(p.x)>22||p.z< -20||p.z>22)return false;
             if(p.x>10.3f&&p.x<13.7f&&Mathf.Abs(p.z-3)>1)return false;
             foreach(var o in obstacles) if(new Vector2(p.x-o.x,p.z-o.z).sqrMagnitude<.64f)return false;
@@ -587,25 +597,27 @@ namespace Umbra
             Vector3 z=p+new Vector3(0,0,delta.z); if(IsWalkable(z))p=z;
             Player.position=p;
         }
-        public void SetRune(RuneKind rune){Rune=rune;SaveProfile();Notify(CombatRules.RuneName(rune)+" equipped");}
+        public void SetRune(RuneKind rune){if(Phase!=RunPhase.Camp)return;Rune=rune;SaveProfile();Notify(CombatRules.RuneName(rune)+" equipped");}
         public bool TryAttack(Vector3 point)
         {
-            if(Drafting||Paused||Time.time<attackAt)return false;
-            float speedMod = AttackSpeedMultiplier * (1f + CombatRules.AttackSpeedBonus(AGI));
+            if(!CanAct||Time.time<attackAt)return false;
+            float speedMod = AttackSpeedMultiplier * (1f + CombatRules.AttackSpeedBonus(AGI)) * (Class==HeroClass.Archer?1.20f:1f);
             attackAt=Time.time+(CombatRules.AttackCooldown / speedMod);
             Vector3 dir=point-Player.position;dir.y=0;if(dir.sqrMagnitude<.01f)dir=facing;dir.Normalize();
             facing=dir;playerSprite.flipX=dir.x<0;
             int count=CombatRules.ProjectileCount(Rune) + BonusProjectiles;
-            int baseDamage = CombatRules.Damage(Rune, Level, STR, DEX);
+            int baseDamage = AttackDamage;
             bool isCrit = Random.value < CombatRules.CritChance(LUK);
             int finalDamage = isCrit ? Mathf.RoundToInt(baseDamage * CombatRules.CritMultiplier) : baseDamage;
-            for(int i=0;i<count;i++) Fire(Quaternion.Euler(0,(i-(count-1)*.5f)*12,0)*dir,Rune,finalDamage,isCrit);
+            if(Class==HeroClass.Swordsman) Slash(dir,finalDamage,isCrit);
+            else for(int i=0;i<count;i++) Fire(Quaternion.Euler(0,(i-(count-1)*.5f)*12,0)*dir,Rune,finalDamage,isCrit);
+            PlayCue(0);
             return true;
         }
         void Fire(Vector3 direction,RuneKind rune,int damage,bool isCrit=false)
         {
             float speed = 16f * (1f + CombatRules.ProjectileSpeedBonus(DEX));
-            var shot=new Shot{velocity=direction*speed,damage=damage,rune=rune,isCrit=isCrit,remaining=rune==RuneKind.Pierce?3:1,expiry=Time.time+1.1f};
+            var shot=new Shot{velocity=direction*speed,damage=damage,rune=rune,isCrit=isCrit,remaining=(rune==RuneKind.Pierce?3:1)+(HasSproutCard?1:0),expiry=Time.time+1.1f};
             Color c=rune==RuneKind.Ember?new(1.8f,.55f,.12f):(isCrit?new(1.8f,1.3f,.3f):new(.6f,1.6f,1.2f));
             var go=Shape("Spirit arrow",PrimitiveType.Cube,Player.position+Vector3.up*.6f,new(.055f,.055f,.8f),Mat("arrow"+rune+(isCrit?"crit":""),c,true),transform);
             go.transform.rotation=Quaternion.LookRotation(direction);
@@ -613,16 +625,15 @@ namespace Umbra
         }
         public bool TryVolley()
         {
-            if(Drafting||Paused||Time.time<volleyAt)return false;
+            if(!CanAct||Time.time<volleyAt)return false;
             float cdr = CombatRules.CooldownReduction(INT);
             volleyAt=Time.time+CombatRules.VolleyCooldown*(1f-cdr);
-            int baseDamage = CombatRules.Damage(Rune, Level, STR, DEX);
-            for(int i=0;i<12;i++)Fire(Quaternion.Euler(0,i*30,0)*Vector3.forward,Rune,baseDamage);
-            Pulse(Player.position,3.8f,mint,.5f);Notify("WIND NOVA");return true;
+            CastNova();return true;
         }
+
         public bool TryDash()
         {
-            if(Drafting||Paused||Time.time<dashAt)return false;
+            if(!CanAct||Time.time<dashAt)return false;
             float cdr = CombatRules.CooldownReduction(INT);
             dashAt=Time.time+CombatRules.DashCooldown*(1f-cdr);
             dashUntil=Time.time+.18f;invulnerableUntil=Time.time+.28f;dashDirection=facing;
@@ -630,11 +641,12 @@ namespace Umbra
         }
         public bool TryHeal()
         {
-            if(Drafting||Paused||Time.time<healAt||Health>=MaxHealth)return false;
+            if(!CanAct||Time.time<healAt||Health>=MaxHealth)return false;
             float cdr = CombatRules.CooldownReduction(INT);
             healAt=Time.time+CombatRules.HealCooldown*(1f-cdr);
-            Health=Mathf.Min(MaxHealth,Health+55);
-            Popup(Player.position+Vector3.up,"+55",mint);Pulse(Player.position,2,mint,.6f);return true;
+            int restored=Mathf.Min(MaxHealth-Health,Mathf.RoundToInt(MaxHealth*.30f));
+            Health+=restored;PlayCue(2);
+            Popup(Player.position+Vector3.up,"+"+restored,mint);Pulse(Player.position,2,mint,.6f);return true;
         }
         public Enemy FindNearestEnemy(Vector3 origin, float maxDistance)
         {
@@ -655,35 +667,20 @@ namespace Umbra
 
         void UpdateHorde(float dt)
         {
-            if(Time.time < nextHordeSpawn) return;
-            float interval = Mathf.Clamp(3.2f - (RunTimer / 90f), 0.9f, 3.2f);
-            nextHordeSpawn = Time.time + interval;
-
-            int active = 0;
-            foreach(var e in enemies) if(e.hp > 0 && e.root.gameObject.activeSelf) active++;
-            int maxAllowed = Mathf.Min(8 + (int)(RunTimer / 10f), 24);
-            if(active >= maxAllowed) return;
-
+            if(BossActive||Time.time<nextHordeSpawn)return;
+            float stage=RunTimer/300f;
+            nextHordeSpawn=Time.time+Mathf.Max(1.1f,3.1f-stage*.65f);
+            int active=0;foreach(var e in enemies)if(e.hp>0&&e.root.gameObject.activeSelf)active++;
+            int cap=Mathf.Min(22,6+(int)(RunTimer/50));
+            int batch=RunTimer<300?2:3;
             foreach(var e in enemies)
             {
-                if(e.hp <= 0 || !e.root.gameObject.activeSelf)
-                {
-                    float angle = Random.Range(0, Mathf.PI * 2);
-                    float dist = Random.Range(13f, 17f);
-                    Vector3 spawnPos = Player.position + new Vector3(Mathf.Cos(angle) * dist, 0, Mathf.Sin(angle) * dist);
-                    spawnPos.x = Mathf.Clamp(spawnPos.x, -21f, 21f);
-                    spawnPos.z = Mathf.Clamp(spawnPos.z, -19f, 21f);
-                    if(IsWalkable(spawnPos))
-                    {
-                        e.root.position = spawnPos;
-                        e.hp = e.maxHp;
-                        e.windupUntil = 0;
-                        e.attackAt = Time.time + Random.Range(0.5f, 1.2f);
-                        e.root.gameObject.SetActive(true);
-                        active++;
-                        if(active >= maxAllowed) break;
-                    }
-                }
+                if(active>=cap||batch<=0)break;
+                if(e.hp>0||e.boss)continue;
+                if(e.elite&&RunTimer<300)continue;
+                if(!TrySpawnPosition(out Vector3 pos))continue;
+                SpawnEnemy(e,pos,Mathf.RoundToInt((e.elite?155:48)*(1+SelectedMap*.5f+RunTimer/650f)));
+                active++;batch--;
             }
         }
 
@@ -692,17 +689,20 @@ namespace Umbra
             foreach(var e in enemies)
             {
                 if(e.hp<=0 || !e.root.gameObject.activeSelf) continue;
+                if(e.burnUntil>Time.time && Time.time>=e.burnTick){e.burnTick=Time.time+1;DamageEnemy(e,e.burnDamage);if(e.hp<=0)continue;}
+                if(e.boss){UpdateBoss(e,dt);continue;}
                 Vector3 delta=Player.position-e.root.position;float distance=delta.magnitude;
                 Vector3 goal=Player.position;
                 if(e.windupUntil>0)
                 {
-                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(e.elite?24:12);e.windupUntil=0;e.attackAt=Time.time+1.4f;}
+                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(Mathf.RoundToInt((e.elite?22:10)*(1+SelectedMap*.3f)));e.windupUntil=0;e.attackAt=Time.time+1.4f;}
                 }
                 else if(distance<1.05f&&Time.time>=e.attackAt){e.windupUntil=Time.time+.7f;Pulse(e.root.position,1.3f,new(1,.32f,.2f),.7f);}
                 else if(distance>1.0f)
                 {
-                    Vector3 next=Vector3.MoveTowards(e.root.position,goal,dt*(distance<7f?(e.elite?1.1f:1.35f):.6f));
-                    if(IsWalkable(next))e.root.position=next;
+                    Vector3 motion=delta.normalized*(e.elite?1.35f:1.65f)*(SelectedMap==1?1.4f:1f);
+                    foreach(var other in enemies)if(other!=e&&other.hp>0){Vector3 away=e.root.position-other.root.position;float sq=away.sqrMagnitude;if(sq>.001f&&sq<.8f)motion+=away.normalized*(.8f-sq)*2;}
+                    SlideEnemy(e,motion*dt);
                 }
                 e.visual.localPosition=new(0,Mathf.Abs(Mathf.Sin(elapsed*4+e.phase))*.10f,0);
                 e.sprite.flipX=delta.x<0;
@@ -722,6 +722,7 @@ namespace Umbra
                     float t=Mathf.Clamp01(Vector3.Dot(p-before,segment)/Mathf.Max(.0001f,segment.sqrMagnitude));
                     if((before+segment*t-p).sqrMagnitude>(e.elite?.75f:.4f))continue;
                     s.hit.Add(e);DamageEnemy(e,s.damage,s.isCrit);s.remaining--;
+                    ApplyHitSupports(e,s.damage,s.hit.Count==1);
                     if(s.rune==RuneKind.Ember){Pulse(e.root.position,1.8f,new(1,.5f,.15f),.45f);foreach(var other in enemies)if(other!=e&&other.hp>0&&other.root.gameObject.activeSelf&&Vector3.Distance(other.root.position,e.root.position)<1.8f)DamageEnemy(other,s.damage/2);}
                     if(s.remaining<=0)break;
                 }
@@ -730,82 +731,53 @@ namespace Umbra
         }
         public void DamageEnemy(Enemy e,int damage,bool isCrit=false)
         {
-            if(e.hp<=0)return;e.hp-=damage;e.flashUntil=Time.time+.12f;
+            if(Phase!=RunPhase.Running||e.hp<=0)return;e.hp-=Mathf.Max(0,damage);e.flashUntil=Time.time+.12f;
             Popup(e.root.position+Vector3.up*1.2f,isCrit?"CRIT! "+damage:damage.ToString(),isCrit?new Color(1f,.88f,.25f):gold);
             if(e.hp>0)return;
             e.hp=0;
             e.root.gameObject.SetActive(false);e.windupUntil=0;Kills++;
-            int expGain = e.elite ? 50 : 20;
-            BaseExperience += expGain;
-            if(BaseExperience >= CombatRules.ExperienceToLevel(BaseLevel))
-            {
-                BaseExperience -= CombatRules.ExperienceToLevel(BaseLevel);
-                BaseLevel++;
-                StatPoints += CombatRules.StatPointsPerLevel;
-                SaveProfile();
-                TriggerLevelUp();
-            }
+            if(e.boss){FinishRun(true,"The guardian has fallen");return;}
+            AwardRunExperience(e.elite?30:10);
+            if(HasMushroomCard) Health=Mathf.Min(MaxHealth,Health+1);
+            if(SelectedMap>0) AddHazard(e.root.position,SelectedMap==1?1.5f:2.2f,SelectedMap==1?1f:1.5f,SelectedMap==1?4f:.35f,SelectedMap==1?8:24);
+
             var item=Shape("Amber shard",PrimitiveType.Cube,e.root.position+Vector3.up*.35f,Vector3.one*.22f,Mat("loot amber",new(1.6f,.8f,.19f),true),transform);
             loot.Add(new Loot{root=item.transform,phase=Random.value*5});
         }
         public void TriggerLevelUp()
         {
-            Health = MaxHealth;
-            Notify("BASE LEVEL " + BaseLevel + "! +3 STAT POINTS");
-            Pulse(Player.position, 4, gold, .8f);
-            ActiveDraft = CombatRules.RollPerks(3, LUK);
-            Drafting = true;
-            Time.timeScale = 0;
+            if(Phase!=RunPhase.Running||BossActive)return;
+            ActiveDraft=RollDraft();Drafting=true;SyncPause();PlayCue(2);
         }
         public void ApplyPerk(CombatRules.Perk perk)
         {
-            switch (perk.Kind)
+            if(!Drafting||perk==null||!ActiveDraft.Contains(perk))return;
+            perkRanks[perk.Kind]=Rank(perk.Kind)+1;
+            switch(perk.Kind)
             {
-                case CombatRules.PerkKind.RunePierce:
-                    SetRune(RuneKind.Pierce);
-                    break;
-                case CombatRules.PerkKind.RuneScatter:
-                    SetRune(RuneKind.Scatter);
-                    break;
-                case CombatRules.PerkKind.RuneEmber:
-                    SetRune(RuneKind.Ember);
-                    break;
-                case CombatRules.PerkKind.RapidFire:
-                    AttackSpeedMultiplier += 0.25f;
-                    Notify("+25% Attack Speed");
-                    break;
-                case CombatRules.PerkKind.SwiftBoots:
-                    MoveSpeedMultiplier += 0.18f;
-                    Notify("+18% Move Speed");
-                    break;
-                case CombatRules.PerkKind.Multishot:
-                    BonusProjectiles += 1;
-                    Notify("+1 Projectile to attacks");
-                    break;
-                case CombatRules.PerkKind.Vitality:
-                    MaxHealthBonus += 35;
-                    Health = Mathf.Min(MaxHealth, Health + 50);
-                    Notify("+35 Max Health & Healed");
-                    break;
-                case CombatRules.PerkKind.Magnetism:
-                    PickupRadius += 3.5f;
-                    Notify("+60% Shard Magnet Pull");
-                    break;
-                case CombatRules.PerkKind.WindNovaPulse:
-                    HasNovaPulse = true;
-                    nextNovaPulse = Time.time + 8f;
-                    Notify("Gale Ward: Auto Nova active");
-                    break;
+                case CombatRules.PerkKind.RunePierce:Rune=RuneKind.Pierce;break;
+                case CombatRules.PerkKind.RuneScatter:Rune=RuneKind.Scatter;break;
+                case CombatRules.PerkKind.RuneEmber:Rune=RuneKind.Ember;break;
+                case CombatRules.PerkKind.RapidFire:AttackSpeedMultiplier+=.15f;break;
+                case CombatRules.PerkKind.SwiftBoots:MoveSpeedMultiplier+=.08f;break;
+                case CombatRules.PerkKind.Multishot:BonusProjectiles++;break;
+                case CombatRules.PerkKind.Vitality:MaxHealthBonus+=20;Health=Mathf.Min(MaxHealth,Health+30);break;
+                case CombatRules.PerkKind.Magnetism:PickupRadius+=2;break;
+                case CombatRules.PerkKind.WindNovaPulse:HasNovaPulse=true;nextNovaPulse=Time.time+10;break;
             }
-            Drafting = false;
-            Time.timeScale = Paused ? 0 : 1;
+            Notify(perk.Title+" acquired");Drafting=false;ActiveDraft.Clear();
+            if(pendingDrafts>0){pendingDrafts--;TriggerLevelUp();}
+            SyncPause();
         }
         public void HurtPlayer(int damage)
         {
-            if(Time.time<invulnerableUntil)return;Health=Mathf.Max(0,Health-damage);lastHitAt=Time.time;
+            if(Phase!=RunPhase.Running||Time.time<invulnerableUntil)return;
+            if(Class==HeroClass.Swordsman)damage=Mathf.CeilToInt(damage*.8f);
+            Health=Mathf.Max(0,Health-damage);lastHitAt=Time.time;invulnerableUntil=Time.time+.55f;PlayCue(1);
             Popup(Player.position+Vector3.up*1.6f,"-"+damage,new(1,.4f,.3f));
-            if(Health==0){Player.position=new(0,0,-2);Health=MaxHealth;invulnerableUntil=Time.time+3;walkingTo=false;Notify("The grove returns you to the trail. No shards lost.");foreach(var e in enemies){if(e.root.gameObject.activeSelf){e.root.position=e.home;e.windupUntil=0;}}}
+            if(Health==0)FinishRun(false,"Defeated in the field");
         }
+
         void UpdateLoot(float dt)
         {
             for(int i=loot.Count-1;i>=0;i--)
@@ -818,10 +790,10 @@ namespace Umbra
                     p = Vector3.MoveTowards(p, target, dt * (12f + (PickupRadius - dist) * 4f));
                 }
                 l.root.position=p;
-                if(dist<1.35f){Shards+=3;Collected++;SaveCollection();Popup(Player.position+Vector3.up,"+3 amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
+                if(dist<1.35f){RunShards+=3;Collected++;Popup(Player.position+Vector3.up,"+3 amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
             }
         }
-        public void Notify(string message){Notice=message;NoticeUntil=Time.time+4;}
+        public void Notify(string message){Notice=message;NoticeUntil=Time.unscaledTime+4;}
         void Popup(Vector3 p,string message,Color color){floats.Add(new FloatText{point=p,text=message,color=color,until=Time.time+1.1f});}
         public void DrawWorldLabels(GUIStyle style)
         {
@@ -843,7 +815,7 @@ namespace Umbra
         void Pulse(Vector3 center,float radius,Color color,float lifetime)
         {
             var go=new GameObject("Skill ring",typeof(LineRenderer));go.transform.SetParent(transform);
-            var line=go.GetComponent<LineRenderer>();line.sharedMaterial=Mat("ring",Color.white,true);line.positionCount=49;line.widthMultiplier=.035f;line.loop=false;
+            var line=go.GetComponent<LineRenderer>();line.sharedMaterial=RingMaterial();line.startColor=line.endColor=color;line.positionCount=49;line.widthMultiplier=.055f;line.loop=false;
             rings.Add(new Ring{line=line,center=center,born=Time.time,lifetime=lifetime,radius=radius,color=color});
         }
         void UpdateRings()
@@ -863,23 +835,8 @@ namespace Umbra
         public IEnumerator SmokeTest(Action<string> complete)
         {
             yield return null;
-            Health=MaxHealth;healAt=volleyAt=0;invulnerableUntil=0;Drafting=false;Time.timeScale=1;
-            int originalShards=Shards;
-            List<string> checks=new();
-            Vector3 start=Player.position;MovePlayer(Vector3.right*.5f);
-            if(Vector3.Distance(start,Player.position)<.4f)throw new Exception("Movement failed");checks.Add("movement");
-            if(IsWalkable(new Vector3(12,0,0)))throw new Exception("River collision failed");checks.Add("river collision");
-            foreach(RuneKind kind in Enum.GetValues(typeof(RuneKind)))if(CombatRules.ProjectileCount(kind)<1)throw new Exception("Rune invalid");checks.Add("three rune definitions");
-            var e=enemies[0];int before=e.hp;DamageEnemy(e,10);if(e.hp!=before-10)throw new Exception("Damage failed");checks.Add("enemy damage");
-            int kills=Kills;DamageEnemy(e,999);if(Kills!=kills+1||e.root.gameObject.activeSelf)throw new Exception("Death failed");checks.Add("death, XP and drop");
-            if(Drafting){Drafting=false;Time.timeScale=1;}
-            Player.position=e.root.position;int shards=Shards;UpdateLoot(0);if(Shards!=shards+3)throw new Exception("Pickup failed");checks.Add("pickup and persistence");
-            Health=MaxHealth;invulnerableUntil=0;HurtPlayer(30);if(!TryHeal()||Health!=MaxHealth)throw new Exception("Heal failed");checks.Add("healing");
-            if(!TryVolley()||TryVolley())throw new Exception("Cooldown failed");checks.Add("cooldown enforcement");
-            Health=1;invulnerableUntil=0;HurtPlayer(2);if(Health!=MaxHealth)throw new Exception("Respawn failed");checks.Add("player respawn");
-            int prevStr=STR;StatPoints+=3;if(!TryAddStat(CombatRules.StatKind.STR)||STR!=prevStr+1)throw new Exception("Stat add failed");checks.Add("RO stat allocation");
-            ResetStats();if(STR!=1)throw new Exception("Stat reset failed");checks.Add("RO free stat reset");
-            Player.position=start;Shards=originalShards;SaveCollection();complete("PASS: "+string.Join(", ",checks));
+            RunCampaignTests(complete);
         }
+
     }
 }

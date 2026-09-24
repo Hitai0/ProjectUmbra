@@ -1,30 +1,40 @@
-# Architecture and boundaries
+# Architecture and boundaries — v0.2.0
 
-- `CombatRules.cs`: pure C# balance rules, rune definitions and progression thresholds. No Unity dependency.
-- `UmbraPrototype.cs`: prototype orchestration, seeded world generation, movement, enemy state, projectiles, loot and local persistence.
-- `UmbraHud.cs`: self-contained scaled HUD, minimap, rune selection, help and pause.
-- `ForestVertex.shader`: URP vertex-color shader for batched grass and ground details.
-- `UmbraProjectSetup.cs`: editor configuration, URP resource creation, scene bootstrap, smoke checks, screenshots and Web build menu.
+The Unity bootstrap generates the existing forest and runs a local single-player simulation. No game server or network economy is required.
 
-All game state currently lives locally. Client-held health, XP, shards and damage are not authoritative and cannot be trusted in a multiplayer release. Do not connect trading or a real economy to this persistence.
+| File | Responsibility |
+|---|---|
+| CombatRules.cs | Shared formulas, thresholds, rune and boon definitions; uses Unity math |
+| UmbraPrototype.cs | World generation, actors, inputs, movement, attacks, loot and profile keys |
+| UmbraCampaign.cs | Camp/run/results lifecycle, settlement, class/map progression, weighted drafts, guardians, hazards and short generated audio cues |
+| UmbraHud.cs / UmbraCampHud.cs | Scaled IMGUI combat UI, camp, draft, character sheet and results |
+| UmbraCampaignTests.cs | Runtime integration checks with save writes suppressed; editor-only guardian preview |
+| UmbraProjectSetup.cs | Editor actions, build configuration, smoke-test scheduling and Web shell copy |
+| ForestVertex.shader | Vertex-colour grass and telegraph rings |
 
-## Prototype rendering
+The runtime is split across partial classes to retain the existing scene/component identity and art generation. A later UI Toolkit migration or ScriptableObject content pipeline can separate content authoring without a save reset.
 
-Orthographic 3D camera, transparent pixel character sprites, shared environment materials, statically combined environment meshes, one directional sun, a small point light, modest post-processing, and a single grass mesh. The original HDRP package remains only to preserve template compatibility; the actual prototype uses URP.
+## Persistence
+
+Existing `Umbra.*` PlayerPrefs keys remain compatible. New keys record cleared-map bits, class, supply rank, mute/focus preferences and save version 2. Loading clamps invalid ranges and refunds allocations above earned stat points. Run-only boons and rewards are not saved as permanent equipment. Changing settings during a run saves the camp rune, not a temporary draft replacement.
+
+Settlement transitions Running → Results before awarding anything, so repeated end-run calls cannot duplicate rewards. A reload during an active expedition loses unsettled rewards; no resumable mid-run checkpoint is implemented. Saves are local to the device/browser origin, separate from Editor saves. Changing production URL would create a new save namespace.
+
+## Rendering and UX
+
+Perspective 3D camera (34° FoV), pixel sprite actors, shared materials, static environment batching, directional light, SSAO and optional bokeh depth of field. Soft focus and audio can be toggled. The original HDRP template is retained for compatibility; this prototype uses URP.
+
+Menus pause simulation and the expedition clock. Focus loss also pauses. The command-file bridge supports a fixed list of editor operations and is ignored by Git; it never executes arbitrary shell input. Smoke tests never write player saves.
 
 ## Known limits
 
-- Fixed camera orientation; a single character facing sprite with mirrored directions and two step poses.
-- Placeholder faceted foliage and simple original pixel sprites, not production HD-2D art.
-- No sound yet.
-- Right-click movement steers directly and stops at obstacles; it does not route around them.
-- The river is blocked except at the bridge; simple cylindrical trunk avoidance replaces full world physics.
-- Minimap is schematic; it is not a full cartographic rendering.
-- Rune/help panels suppress mouse gameplay input; keyboard movement remains live. Escape pauses the simulation.
-- Immediate-mode UI is for prototyping, not the intended final production UI.
-- Mobile/touch and low-end browser performance are not validated.
-- The editor command file is a local developer convenience supporting only a small fixed list of actions, never arbitrary code or shell execution. `.umbra-*` files are ignored by Git.
+- Character and guardian art is reused; classes have different mechanics but not full bespoke animations.
+- Three route variants share world geometry. Cards are draft effects, not a persistent inventory/socket-board feature.
+- Right-click travel uses direct steering. Enemies use collision avoidance, not navigation meshes.
+- Immediate-mode UI and generated tones are prototype systems. No music score yet.
+- No multiplayer, account/cloud save, mid-run resume, or mobile/touch UI.
+- Test coverage validates transitions, formulas and actual combat methods; it does not establish long-term balance or low-end-device performance.
 
-## Next network milestone
+## Static deployment
 
-Extract the world simulation behind a fixed tick. Keep presentation in the client; validate movement, hit tests, cooldowns and rewards on the server. Implement a browser-compatible transport, prediction/reconciliation, nearby-entity subscriptions, server-owned inventory, idempotent rewards and transactional persistence before adding trade. Test two players first, then load-test a single zone. No player-capacity claims are made for a free-tier VM.
+`Builds/Web` contains the Unity WebGL output and branded loader. Host as static files with correct WASM MIME handling. `Tools/serve_web.py` provides localhost testing. Vercel project metadata and credentials stay outside source control. Build output is uploaded as a release artifact, not committed to Git.

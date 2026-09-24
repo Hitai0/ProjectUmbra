@@ -31,3 +31,4 @@ TestResults/
 Recordings/
 __pycache__/
 *.pyc
+.vercel/

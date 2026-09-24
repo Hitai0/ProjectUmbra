@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Umbra
 {
     // Immediate-mode HUD keeps this playable slice self-contained, with no external UI packages.
-    public sealed class UmbraHud : MonoBehaviour
+    public sealed partial class UmbraHud : MonoBehaviour
     {
         public UmbraPrototype Game;
         GUIStyle text, small, title, number, button, centered, damage, heading;
@@ -54,6 +54,14 @@ namespace Umbra
             scale=Mathf.Min(Screen.width/1600f,Screen.height/900f);
             float offsetX=(Screen.width-1600*scale)/2,offsetY=(Screen.height-900*scale)/2;
             GUI.matrix=Matrix4x4.TRS(new Vector3(offsetX,offsetY,0),Quaternion.identity,new Vector3(scale,scale,1));
+            if(Game.Phase!=RunPhase.Running)
+            {
+                if(Game.Phase==RunPhase.Camp)DrawCamp();else DrawResults();
+                if(Game.StatsPanel)DrawStats();
+                if(Game.RunePanel)DrawRunes();
+                if(Game.HelpPanel)DrawGuide();
+                GUI.matrix=Matrix4x4.identity;return;
+            }
             Panel(new(26,26,322,113));
             if(GUI.Button(new Rect(26,26,322,113),GUIContent.none,GUIStyle.none)) Game.StatsPanel=!Game.StatsPanel;
             Box(new(39,39,64,82),new(.15f,.20f,.14f));
@@ -61,14 +69,15 @@ namespace Umbra
             Label(119,39,"WANDERER",heading);
             Label(278,39,"Lv. "+Game.Level,heading,gold);
             if(Game.StatPoints>0) Label(260,59,"+"+Game.StatPoints+" PTS",small,mint);
-            else Label(119,59,"Wayfarer  /  Novice",small,muted);
+            else Label(119,59,Game.Class+"  /  Run Lv. "+Game.RunLevel,small,muted);
             Bar(119,83,210,(float)Game.Health/Game.MaxHealth,new(.70f,.29f,.22f));
             Label(119,96,Game.Health+" / "+Game.MaxHealth+" HP",small);
-            Label(243,96,Game.Experience+" XP",small,gold);
-            Bar(39,126,293,(float)Game.Experience/CombatRules.ExperienceToLevel(Game.Level),gold);
+            Label(243,96,Game.RunExperience+" XP",small,gold);
+            Bar(39,126,293,(float)Game.RunExperience/CombatRules.RunExperienceToLevel(Game.RunLevel),gold);
 
+            Panel(new(600,18,365,88));
             Label(640,25,"P R O J E C T   U M B R A",heading,cream,450);
-            Label(686,46,"A M B E R F A L L   G R O V E",small,muted,400);
+            Label(686,46,Game.MapName,small,muted,400);
             int mins=(int)(Game.RunTimer/60f), secs=(int)(Game.RunTimer%60f);
             Label(720,67,string.Format("{0:00}:{1:00} / 15:00", mins, secs),number,mint,200);
 
@@ -82,7 +91,7 @@ namespace Umbra
             Panel(new(1265,26,308,52));
             if(Button(new(1275,36,90,31),"RUNES  [TAB]",Game.RunePanel))Game.RunePanel=!Game.RunePanel;
             if(Button(new(1373,36,88,31),"GUIDE  [H]",Game.HelpPanel))Game.HelpPanel=!Game.HelpPanel;
-            if(Button(new(1469,36,94,31),"PAUSE  [ESC]",Game.Paused)){Game.Paused=!Game.Paused;Time.timeScale=Game.Paused?0:1;}
+            if(Button(new(1469,36,94,31),"PAUSE  [ESC]",Game.Paused))Game.TogglePause();
 
             Panel(new(1334,97,239,214));
             Label(1350,110,"THE OLD PILGRIM ROAD",heading,gold);
@@ -99,30 +108,29 @@ namespace Umbra
             Label(1350,287,"N  /  FIELD 01",small,muted);
             Label(1472,287,"LOCAL",small,mint);
             Panel(new(1334,329,239,156));
-            Label(1350,344,"A WHISPER IN THE LEAVES",heading,gold);
-            Label(1350,374,"Restore the restless grove.",small,cream);
-            Label(1350,400,"Defeat grove creatures",small,muted);
-            Label(1512,399,Mathf.Min(Game.Kills,6)+" / 6",small,cream);
-            Bar(1350,425,205,Game.Kills/6f,mint);
-            Label(1350,446,Game.Kills>=6?"COMPLETE  /  +25 amber":"REWARD  /  25 amber shards",small,Game.Kills>=6?mint:gold);
+            Label(1350,344,Game.StageName,heading,gold);
+            Label(1350,374,Game.BossActive?Game.BossName:"Guardian arrives at 14:00",small,cream);
+            Label(1350,400,"Defeated: "+Game.Kills,small,muted);
+            Bar(1350,425,205,Game.BossActive?Game.BossHealth:Game.RunTimer/840f,Game.BossActive?new Color(.85f,.3f,.2f):mint);
+            Label(1350,446,Game.BossActive?"Defeat it before 15:00":"Dodge amber warning circles",small,gold);
 
-            if(Time.time<Game.NoticeUntil)
+            if(Time.unscaledTime<Game.NoticeUntil)
             {
                 var style=new GUIStyle(centered){fontSize=16};
                 Box(new(425,112,750,38),new(.055f,.10f,.075f,.80f));
                 GUI.Label(new Rect(425,112,750,38),Game.Notice,style);
             }
             Panel(new(26,792,304,79));
-            Label(43,803,"AMBER COLLECTION",small,muted);
-            Label(43,824,Game.Shards.ToString("N0")+"  shards",number,gold);
-            Label(200,835,"Saved locally",small,muted);
+            Label(43,803,"THIS EXPEDITION",small,muted);
+            Label(43,824,Game.RunShards.ToString("N0")+"  amber",number,gold);
+            Label(200,835,"Banked at end",small,muted);
 
             Panel(new(447,789,704,83));
             Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?"Auto-firing at nearest foe.":"Hold LMB to aim and fire."));
             Skill(598,"Q","WIND NOVA",Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
             Skill(735,"SPACE","QUICKSTEP",Game.DashRemaining,CombatRules.DashCooldown,()=>Game.TryDash());
             Skill(872,"E","MEND",Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
-            if(Button(new(1009,802,126,55),"R\nCHANGE RUNE"))Game.SetRune((RuneKind)(((int)Game.Rune+1)%3));
+            if(Button(new(1009,802,126,55),"TAB\nBUILD DETAILS"))Game.RunePanel=!Game.RunePanel;
             Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?"AUTO-AIM ON":"MANUAL AIM"),small,gold);
             Label(1254,826,"WASD move   /   RMB travel",small,cream);
             Label(1254,847,"Scroll zoom   /   H controls",small,muted);
@@ -134,10 +142,13 @@ namespace Umbra
             if(Game.Drafting)DrawDraft();
             if(Game.Paused)
             {
-                Box(new(0,0,1600,900),new(0,0,0,.5f));Panel(new(560,345,480,210));
+                Box(new(0,0,1600,900),new(0,0,0,.5f));Panel(new(560,280,480,355));
                 Label(610,379,"A MOMENT OF STILLNESS",number);
                 Label(610,424,"The grove can wait.",text,muted);
-                if(Button(new(610,479,380,45),"RETURN TO THE GROVE")){Game.Paused=false;Time.timeScale=1;}
+                if(Button(new(610,465,380,40),"RETURN TO THE GROVE"))Game.TogglePause();
+                if(Button(new(610,515,185,36),Game.Muted?"SOUND: OFF":"SOUND: ON"))Game.ToggleSound();
+                if(Button(new(805,515,185,36),Game.SoftFocus?"SOFT FOCUS: ON":"SOFT FOCUS: OFF"))Game.ToggleFocus();
+                if(Button(new(610,568,380,40),"END RUN & BANK COLLECTED REWARDS"))Game.FinishRun(false,"Returned safely to camp");
             }
             GUI.matrix=Matrix4x4.identity;
         }
@@ -151,8 +162,9 @@ namespace Umbra
         {
             Box(new Rect(0,0,1600,900),new Color(0,0,0,.78f));
             Panel(new(250,150,1100,580));
-            Label(570,180,"L E V E L   U P !",title,gold);
+            Label(570,180,"C H O O S E   A   B O O N",title,gold);
             Label(480,230,"Choose a boon to empower your spirit in the grove:",text,cream);
+            if(Game.Rerolls>0&&Button(new(1035,192,250,36),"REROLL  /  "+Game.Rerolls+" LEFT"))Game.RerollDraft();
 
             var perks = Game.ActiveDraft;
             if(perks == null || perks.Count == 0) return;
@@ -172,6 +184,7 @@ namespace Umbra
                 Color rarityColor = perk.Rarity switch
                 {
                     "RARE" => gold,
+                    "EPIC" => new Color(.76f,.58f,1f),
                     "UNCOMMON" => mint,
                     _ => cream
                 };
@@ -198,7 +211,7 @@ namespace Umbra
         {
             Box(new(0,0,1600,900),new(0,0,0,.45f));Panel(new(376,237,848,409));
             Label(408,264,"THE ART OF THE ARROW",title);
-            Label(410,312,"One skill. Three ways to shape it. Switch freely while exploring.",text,muted);
+            Label(410,312,Game.Phase==RunPhase.Camp?"Choose a starting rune. Shared by every class.":"Your run build. Boons reset when you return to camp.",text,muted);
             for(int i=0;i<3;i++)
             {
                 RuneKind rune=(RuneKind)i;float x=407+i*269;
@@ -207,23 +220,26 @@ namespace Umbra
                 Label(x+17,414,CombatRules.RuneName(rune),heading);
                 var wrap=new GUIStyle(small){wordWrap=true};
                 GUI.Label(new Rect(x+17,446,215,53),CombatRules.RuneDescription(rune),wrap);
-                if(Button(new(x+17,508,214,33),Game.Rune==rune?"EQUIPPED":"EQUIP  ["+(i+1)+"]",Game.Rune==rune))Game.SetRune(rune);
+                if(Game.Phase==RunPhase.Camp){if(Button(new(x+17,508,214,33),Game.Rune==rune?"EQUIPPED":"EQUIP",Game.Rune==rune))Game.SetRune(rune);}
+                else Label(x+17,515,Game.Rune==rune?"EQUIPPED":"Available through boon draft",small,Game.Rune==rune?gold:muted,220);
             }
             if(Button(new(945,589,246,34),"BACK TO THE GROVE  [TAB]"))Game.RunePanel=false;
-            Label(409,596,"Rune choice is saved on this device.",small,muted);
+            Label(409,584,"ATK "+Game.AttackDamage+"  /  SPEED "+Game.AttackSpeedMultiplier.ToString("0.00")+"x  /  EXTRA SHOTS "+Game.BonusProjectiles,small,muted);
+            Label(409,609,"Chain "+Game.Rank(CombatRules.PerkKind.Chain)+"  /  Ignite "+Game.Rank(CombatRules.PerkKind.Ignite)+"  /  Sprout "+Game.Rank(CombatRules.PerkKind.SproutCard)+"  /  Mushroom "+Game.Rank(CombatRules.PerkKind.MushroomCard),small,muted);
         }
         void DrawStats()
         {
             Box(new Rect(0,0,1600,900),new Color(0,0,0,.72f));
             Panel(new(460,130,680,640));
             Label(570,155,"C H A R A C T E R   S T A T U S",title,gold);
-            Label(525,205,"NOVICE  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)",text,cream);
+            Label(525,205,Game.Class+"  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)",text,cream);
 
             // Points Banner
             Panel(new(490,240,620,48));
-            bool hasPts = Game.StatPoints > 0;
+            bool hasPts = Game.StatPoints > 0 && Game.Phase==RunPhase.Camp;
             Label(510,252,"AVAILABLE STAT POINTS:  " + Game.StatPoints,heading,hasPts?mint:muted);
-            if(Button(new(930,248,160,32),"RESET STATS (FREE)")) Game.ResetStats();
+            if(Game.Phase==RunPhase.Camp){if(Button(new(930,248,160,32),"RESET STATS (FREE)")) Game.ResetStats();}
+            else Label(925,256,"Allocate at camp",small,muted,170);
 
             // 6 Stats rows
             CombatRules.StatKind[] stats = (CombatRules.StatKind[])System.Enum.GetValues(typeof(CombatRules.StatKind));
@@ -240,12 +256,12 @@ namespace Umbra
 
                 string desc = s switch
                 {
-                    CombatRules.StatKind.STR => "+" + ((Game.STR-1)*2) + "% Base Damage  •  Knockback Power",
+                    CombatRules.StatKind.STR => "+" + ((Game.STR-1)*2) + "% Base Damage",
                     CombatRules.StatKind.AGI => "+" + ((Game.AGI-1)*1.5f).ToString("0.0") + "% Atk Speed  •  +" + ((Game.AGI-1)*0.4f).ToString("0.0") + "% Move Speed",
-                    CombatRules.StatKind.VIT => "+" + ((Game.VIT-1)*8) + " Max HP  •  +" + ((Game.VIT-1)*0.2f).ToString("0.0") + " HP/s Regen",
-                    CombatRules.StatKind.INT => "-" + ((Game.INT-1)*1.2f).ToString("0.0") + "% Cooldowns (Max 50%)",
+                    CombatRules.StatKind.VIT => "+" + ((Game.VIT-1)*8) + " Max HP  •  +" + CombatRules.HealthRegenPerSecond(Game.VIT).ToString("0.00") + " HP/s Regen",
+                    CombatRules.StatKind.INT => "-" + (CombatRules.CooldownReduction(Game.INT)*100).ToString("0.0") + "% Cooldowns  /  Mage spell damage",
                     CombatRules.StatKind.DEX => "+" + ((Game.DEX-1)*2) + "% Arrow Speed  •  +" + ((Game.DEX-1)*1.5f).ToString("0.0") + "% Arrow Dmg",
-                    _ => "+" + ((Game.LUK-1)*0.5f).ToString("0.0") + "% Crit Chance (1.75x)  •  Rare Boon Luck"
+                    _ => (CombatRules.CritChance(Game.LUK)*100).ToString("0.0") + "% Crit Chance (1.75x)  •  Rare Boon Luck"
                 };
                 Label(625, y+16, desc, small, muted, 360);
 
@@ -271,9 +287,9 @@ namespace Umbra
                             "Q                                   Wind Nova: a ring of arrows",
                             "Space                            Quickstep with brief invulnerability",
                             "E                                    Mend: restore health",
-                            "R / 1 / 2 / 3                   Change your support rune",
-                            "Tab                                Open the rune collection",
-                            "Survive up to 15:00. Level up, draft boons, allocate stats!"};
+                            "Tab                                Inspect your run build (pauses)",
+                            "Camp                             Change class, rune and stats for free",
+                            "Defeat the guardian at 14:00 before time expires at 15:00."};
             for(int i=0;i<lines.Length;i++)Label(516,314+i*27,lines[i],i>7?small:text,i>7?muted:cream);
             if(Button(new(516,624,568,38),"BEGIN EXPLORING  [H]")) Game.HelpPanel=false;
         }

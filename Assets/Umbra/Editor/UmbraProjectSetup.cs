@@ -24,6 +24,11 @@ namespace Umbra.Editor
         {
             if(EditorApplication.timeSinceStartup<nextPoll||EditorApplication.isCompiling||EditorApplication.isUpdating)return;
             nextPoll=EditorApplication.timeSinceStartup+1;
+            if(EditorApplication.isPlaying&&SessionState.GetBool("Umbra.PendingSmoke",false))
+            {
+                var ready=UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>();
+                if(ready&&ready.Ready){SessionState.SetBool("Umbra.PendingSmoke",false);ExecuteSmokeTests();}
+            }
             string path=".umbra-command";
             if(!File.Exists(path))return;
             string command=File.ReadAllText(path).Trim();File.Delete(path);
@@ -37,6 +42,7 @@ namespace Umbra.Editor
                 else if(command=="test")RunSmokeTests();
                 else if(command=="capture")Capture();
                 else if(command=="diag")Diag();
+                else if(command=="boss-preview")UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>()?.PreviewGuardian();
                 else if(command=="refresh")AssetDatabase.Refresh();
             }
             catch(Exception e){File.WriteAllText(".umbra-error",e.ToString());Debug.LogException(e);}
@@ -67,7 +73,7 @@ namespace Umbra.Editor
             QualitySettings.SetQualityLevel(old);
             QualitySettings.vSyncCount=0;
             PlayerSettings.companyName="Project Umbra";PlayerSettings.productName="Project Umbra";
-            PlayerSettings.bundleVersion="0.1.4";
+            PlayerSettings.bundleVersion=UmbraPrototype.Version;
             PlayerSettings.defaultScreenWidth=1600;PlayerSettings.defaultScreenHeight=900;
             PlayerSettings.runInBackground=true;
             PlayerSettings.WebGL.compressionFormat=WebGLCompressionFormat.Disabled;
@@ -111,6 +117,7 @@ namespace Umbra.Editor
         public static void BuildWeb()
         {
             if(EditorApplication.isPlaying)throw new InvalidOperationException("Stop Play Mode before building.");
+            PlayerSettings.bundleVersion=UmbraPrototype.Version;
             Directory.CreateDirectory("Builds/Web");
             var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{ScenePath},target=BuildTarget.WebGL,locationPathName="Builds/Web",options=BuildOptions.None});
             File.WriteAllText(".umbra-build",report.summary.result+" | "+report.summary.totalSize+" bytes | "+report.summary.totalTime);
@@ -120,14 +127,15 @@ namespace Umbra.Editor
                 string shell=File.ReadAllText("Tools/web_shell.html").Replace("@@BUILD_NAME@@","Web");
                 File.WriteAllText("Builds/Web/index.html",shell);
             }
+            if(File.Exists("Tools/vercel.json"))File.Copy("Tools/vercel.json","Builds/Web/vercel.json",true);
         }
         [MenuItem("Umbra/Run gameplay smoke tests (Play Mode)")]
         public static void RunSmokeTests()
         {
             if(!EditorApplication.isPlaying)
             {
+                SessionState.SetBool("Umbra.PendingSmoke",true);
                 EditorApplication.isPlaying = true;
-                EditorApplication.playModeStateChanged += OnPlayStateChangedForTest;
                 return;
             }
             ExecuteSmokeTests();

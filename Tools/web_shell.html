@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Project Umbra — Amberfall Grove</title>
+  <title>Project Umbra — The Wayfarer's Camp</title>
   <style>
     *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#0c1712;color:#ede5ca;font-family:Georgia,serif}
     canvas{display:block;width:100%;height:100%;outline:none}
@@ -16,27 +16,30 @@
     #status{font:12px/1.6 system-ui;color:#afbea8;min-height:20px;margin-top:20px}progress{width:100%;height:3px;appearance:none;border:0;background:#263a2b;display:none;margin-top:24px}progress::-webkit-progress-bar{background:#263a2b}progress::-webkit-progress-value{background:#c6ab70}
     .footer{position:absolute;bottom:24px;font:10px system-ui;letter-spacing:.12em;color:#7f927d;text-align:center;line-height:1.8;padding:0 20px}
     #error{display:none;position:fixed;inset:20px 20px auto;z-index:5;background:#3c231e;border:1px solid #ae6653;padding:20px;font:14px/1.6 system-ui;white-space:pre-wrap;color:#ffe7d0}
+    #fullscreen{display:none;position:fixed;bottom:5px;right:8px;padding:6px 10px;font-size:10px;opacity:.75;z-index:1}button:focus-visible{outline:3px solid #efffcf;outline-offset:4px}
   </style>
 </head>
 <body>
   <canvas id="game" tabindex="0" aria-label="Project Umbra game. WASD move, left mouse fire, Q nova, Space dodge, E heal, Tab runes."></canvas>
   <div id="welcome"><div class="card">
-    <div class="eyebrow">An adventure taking root</div>
-    <h1>Project Umbra<span>Amberfall Grove</span></h1>
+    <div class="eyebrow">A single-player roguelite adventure</div>
+    <h1>Project Umbra<span>The Wayfarer's Camp</span></h1>
     <div class="line"></div>
-    <p class="copy">Follow the old pilgrim road.<br>Shape your arrows. Restore the restless grove.</p>
-    <button id="enter">ENTER THE GROVE</button>
+    <p class="copy">Choose your path. Shape your build.<br>Three expeditions. Four classes. One last guardian.<br>Up to 15 minutes per run. Progress stays on this device.</p>
+    <button id="enter">ENTER CAMP</button>
     <progress id="progress" value="0" max="1"></progress>
     <div id="status">Desktop browser recommended · Keyboard &amp; mouse</div>
-  </div><div class="footer">PRE-ALPHA 0.1.4 · ROGUELITE HORDE SURVIVAL PROTOTYPE<br>WASD MOVE &nbsp; / &nbsp; MOUSE AIM &nbsp; / &nbsp; SPACE QUICKSTEP &nbsp; / &nbsp; LEVEL UP BOONS</div></div>
+  </div><div class="footer">PRE-ALPHA 0.2.0 · SINGLE PLAYER<br>WASD MOVE &nbsp; / &nbsp; AUTO-AIM &nbsp; / &nbsp; SPACE DODGE &nbsp; / &nbsp; Q NOVA &nbsp; / &nbsp; E MEND</div></div>
   <div id="error" role="alert"></div>
+  <button id="fullscreen" aria-label="Toggle fullscreen">FULLSCREEN</button>
   <script>
     const canvas=document.querySelector('#game'),enter=document.querySelector('#enter'),status=document.querySelector('#status'),progress=document.querySelector('#progress');
     canvas.addEventListener('contextmenu',event=>event.preventDefault());
-    function showError(message){document.querySelector('#error').style.display='block';document.querySelector('#error').textContent=String(message);status.textContent='The grove could not load. See the message above.';}
+    function showError(message){document.querySelector('#error').style.display='block';document.querySelector('#error').textContent=String(message);status.textContent='Unable to load. Reload the page to try again.';enter.disabled=false;enter.textContent='RELOAD';enter.onclick=()=>location.reload();}
+    document.querySelector('#fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();canvas.focus();}catch(err){status.textContent='Fullscreen is unavailable in this browser.';}};
     enter.addEventListener('click',()=>{
       enter.disabled=true;enter.textContent='OPENING THE PATH';progress.style.display='block';
-      const v='0.1.4';
+      const v='0.2.0';
       const script=document.createElement('script');script.src='Build/@@BUILD_NAME@@.loader.js?v='+v;
       script.onerror=()=>showError('Unity loader could not be downloaded. Check the Web build and local server.');
       script.onload=()=>createUnityInstance(canvas,{
@@ -46,9 +49,8 @@
         devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5),
         showBanner:(message,type)=>{if(type==='error')showError(message);else console.warn(message);}
       },value=>{progress.value=value;status.textContent=value<.9?'Gathering the forest… '+Math.round(value*100)+'%':'Waking the grove…';})
-      .then(instance=>{window.umbra=instance;document.querySelector('#welcome').style.display='none';canvas.focus();})
+      .then(instance=>{window.umbra=instance;document.querySelector('#welcome').style.display='none';document.querySelector('#fullscreen').style.display='block';canvas.focus();})
       .catch(err=>{
-        if(window.indexedDB){try{indexedDB.deleteDatabase('UnityCache');}catch(e){}}
         showError(err);
       });
       document.body.appendChild(script);
