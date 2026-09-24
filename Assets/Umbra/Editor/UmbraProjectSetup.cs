@@ -36,6 +36,7 @@ namespace Umbra.Editor
                 else if(command=="web")BuildWeb();
                 else if(command=="test")RunSmokeTests();
                 else if(command=="capture")Capture();
+                else if(command=="diag")Diag();
                 else if(command=="refresh")AssetDatabase.Refresh();
             }
             catch(Exception e){File.WriteAllText(".umbra-error",e.ToString());Debug.LogException(e);}
@@ -66,7 +67,7 @@ namespace Umbra.Editor
             QualitySettings.SetQualityLevel(old);
             QualitySettings.vSyncCount=0;
             PlayerSettings.companyName="Project Umbra";PlayerSettings.productName="Project Umbra";
-            PlayerSettings.bundleVersion="0.1.2";
+            PlayerSettings.bundleVersion="0.1.3";
             PlayerSettings.defaultScreenWidth=1600;PlayerSettings.defaultScreenHeight=900;
             PlayerSettings.runInBackground=true;
             PlayerSettings.WebGL.compressionFormat=WebGLCompressionFormat.Disabled;
@@ -128,7 +129,50 @@ namespace Umbra.Editor
             game.StartCoroutine(game.SmokeTest(result=>{File.WriteAllText(".umbra-test",result);Debug.Log(result);}));
         }
         [MenuItem("Umbra/Capture prototype (Play Mode)")]
-        public static void Capture(){Directory.CreateDirectory("Recordings");ScreenCapture.CaptureScreenshot("Recordings/Amberfall.png");}
+        public static void Capture()
+        {
+            Directory.CreateDirectory("Recordings");
+            var game = UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>();
+            if (game && game.WorldCamera)
+            {
+                var cam = game.WorldCamera;
+                var rt = new RenderTexture(1600, 900, 24);
+                var prevRt = cam.targetTexture;
+                cam.targetTexture = rt;
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(1600, 900, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
+                tex.Apply();
+                cam.targetTexture = prevRt;
+                RenderTexture.active = null;
+                UnityEngine.Object.DestroyImmediate(rt);
+                File.WriteAllBytes("Recordings/Amberfall.png", tex.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(tex);
+            }
+            else ScreenCapture.CaptureScreenshot("Recordings/Amberfall.png");
+        }
+        public static void Diag()
+        {
+            var game = UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>();
+            if (!game) { File.WriteAllText(".umbra-diag", "No game found"); return; }
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Enemies count: " + game.Enemies.Count);
+            int active = 0, inactiveWithHp = 0;
+            for (int i = 0; i < game.Enemies.Count; i++)
+            {
+                var e = game.Enemies[i];
+                bool act = e.root.gameObject.activeSelf;
+                if (act) active++;
+                else if (e.hp > 0) inactiveWithHp++;
+                if (i < 5 || act)
+                {
+                    sb.AppendLine($"Enemy {i}: active={act}, hp={e.hp}/{e.maxHp}, pos={e.root.position}, sprite={e.sprite != null}, srEnabled={(e.sprite ? e.sprite.enabled : false)}, srMat={(e.sprite && e.sprite.sharedMaterial ? e.sprite.sharedMaterial.name : "null")}, shader={(e.sprite && e.sprite.sharedMaterial && e.sprite.sharedMaterial.shader ? e.sprite.sharedMaterial.shader.name : "null")}");
+                }
+            }
+            sb.AppendLine($"Summary: active={active}, inactiveWithHp={inactiveWithHp}");
+            File.WriteAllText(".umbra-diag", sb.ToString());
+        }
         public static void EnsureSSAO(UniversalRendererData renderer)
         {
             if(!renderer)return;

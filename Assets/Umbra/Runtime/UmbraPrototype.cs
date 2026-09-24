@@ -11,7 +11,7 @@ namespace Umbra
 {
     public sealed class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.1.2";
+        public const string Version = "0.1.3";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
@@ -387,7 +387,8 @@ namespace Umbra
             {
                 bool isElite = (i == 7 || i == 15 || i == 23);
                 Vector3 p = i < homes.Length ? homes[i] : new Vector3(Random.Range(-18f,18f),0,Random.Range(-16f,18f));
-                var enemy=new Enemy{home=p,maxHp=isElite?180:55,elite=isElite,phase=Random.value*6.28f}; enemy.hp=enemy.maxHp;
+                var enemy=new Enemy{home=p,maxHp=isElite?180:55,elite=isElite,phase=Random.value*6.28f};
+                enemy.hp = i < 8 ? enemy.maxHp : 0;
                 enemy.root=new GameObject(enemy.elite?"Elder bloom":"Grove creature").transform; enemy.root.SetParent(transform); enemy.root.position=enemy.home;
                 Shadow(enemy.root,enemy.elite?1.1f:.6f);
                 enemy.sprite=SpriteActor(enemy.root,i%2==0?mushroomSprite:sproutSprite,enemy.elite?1.5f:1);
@@ -589,7 +590,7 @@ namespace Umbra
         {
             foreach(var e in enemies)
             {
-                if(e.hp<=0) continue;
+                if(e.hp<=0 || !e.root.gameObject.activeSelf) continue;
                 Vector3 delta=Player.position-e.root.position;float distance=delta.magnitude;
                 Vector3 goal=Player.position;
                 if(e.windupUntil>0)
@@ -620,7 +621,7 @@ namespace Umbra
                     float t=Mathf.Clamp01(Vector3.Dot(p-before,segment)/Mathf.Max(.0001f,segment.sqrMagnitude));
                     if((before+segment*t-p).sqrMagnitude>(e.elite?.75f:.4f))continue;
                     s.hit.Add(e);DamageEnemy(e,s.damage);s.remaining--;
-                    if(s.rune==RuneKind.Ember){Pulse(e.root.position,1.8f,new(1,.5f,.15f),.45f);foreach(var other in enemies)if(other!=e&&other.hp>0&&Vector3.Distance(other.root.position,e.root.position)<1.8f)DamageEnemy(other,s.damage/2);}
+                    if(s.rune==RuneKind.Ember){Pulse(e.root.position,1.8f,new(1,.5f,.15f),.45f);foreach(var other in enemies)if(other!=e&&other.hp>0&&other.root.gameObject.activeSelf&&Vector3.Distance(other.root.position,e.root.position)<1.8f)DamageEnemy(other,s.damage/2);}
                     if(s.remaining<=0)break;
                 }
                 if(s.remaining<=0||Time.time>s.expiry){Destroy(s.root.gameObject);shots.RemoveAt(i);}
@@ -631,7 +632,8 @@ namespace Umbra
             if(e.hp<=0)return;e.hp-=damage;e.flashUntil=Time.time+.12f;
             Popup(e.root.position+Vector3.up*1.2f,damage.ToString(),gold);
             if(e.hp>0)return;
-            e.root.gameObject.SetActive(false);e.respawnAt=Time.time+14;e.windupUntil=0;Kills++;
+            e.hp=0;
+            e.root.gameObject.SetActive(false);e.windupUntil=0;Kills++;
             Experience+=e.elite?50:20;
             if(Experience>=CombatRules.ExperienceToLevel(Level))
             {
@@ -698,7 +700,7 @@ namespace Umbra
         {
             if(Time.time<invulnerableUntil)return;Health=Mathf.Max(0,Health-damage);lastHitAt=Time.time;
             Popup(Player.position+Vector3.up*1.6f,"-"+damage,new(1,.4f,.3f));
-            if(Health==0){Player.position=new(0,0,-2);Health=MaxHealth;invulnerableUntil=Time.time+3;walkingTo=false;Notify("The grove returns you to the trail. No shards lost.");foreach(var e in enemies){e.root.position=e.home;e.windupUntil=0;}}
+            if(Health==0){Player.position=new(0,0,-2);Health=MaxHealth;invulnerableUntil=Time.time+3;walkingTo=false;Notify("The grove returns you to the trail. No shards lost.");foreach(var e in enemies){if(e.root.gameObject.activeSelf){e.root.position=e.home;e.windupUntil=0;}}}
         }
         void UpdateLoot(float dt)
         {
@@ -721,7 +723,7 @@ namespace Umbra
         {
             foreach(var e in enemies)
             {
-                if(e.hp<=0||e.hp==e.maxHp)continue;
+                if(e.hp<=0||!e.root.gameObject.activeSelf||e.hp==e.maxHp)continue;
                 Vector3 p=WorldCamera.WorldToScreenPoint(e.root.position+Vector3.up*(e.elite?2:1.45f));if(p.z<0)continue;
                 GUI.color=new(.07f,.12f,.1f,.9f);GUI.DrawTexture(new Rect(p.x-27,Screen.height-p.y,54,5),Texture2D.whiteTexture);
                 GUI.color=e.elite?gold:mint;GUI.DrawTexture(new Rect(p.x-26,Screen.height-p.y+1,52*Mathf.Clamp01((float)e.hp/e.maxHp),3),Texture2D.whiteTexture);

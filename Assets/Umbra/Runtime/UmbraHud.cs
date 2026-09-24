@@ -85,7 +85,7 @@ namespace Umbra
             Box(new(1504,143,12,135),new(.19f,.35f,.32f));
             foreach(var e in Game.Enemies)
             {
-                if(e.hp<=0)continue;
+                if(e.hp<=0||!e.root.gameObject.activeSelf)continue;
                 Vector3 p=e.root.position;Box(new(1449+p.x*4,213-p.z*2.8f,4,4),new(.80f,.42f,.28f));
             }
             Vector3 player=Game.Player.position;
