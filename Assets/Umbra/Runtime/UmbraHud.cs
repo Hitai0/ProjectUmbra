@@ -60,13 +60,19 @@ namespace Umbra
             Label(119,39,"WANDERER",heading);
             Label(278,39,"Lv. "+Game.Level,heading,gold);
             Label(119,59,"Wayfarer  /  Ranger",small,muted);
-            Bar(119,83,210,(float)Game.Health/CombatRules.MaxHealth,new(.70f,.29f,.22f));
-            Label(119,96,Game.Health+" / "+CombatRules.MaxHealth+" HP",small);
+            Bar(119,83,210,(float)Game.Health/Game.MaxHealth,new(.70f,.29f,.22f));
+            Label(119,96,Game.Health+" / "+Game.MaxHealth+" HP",small);
             Label(243,96,Game.Experience+" XP",small,gold);
             Bar(39,126,293,(float)Game.Experience/CombatRules.ExperienceToLevel(Game.Level),gold);
 
-            Label(640,30,"P R O J E C T   U M B R A",heading,cream,450);
-            Label(686,53,"A M B E R F A L L   G R O V E",small,muted,400);
+            Label(640,25,"P R O J E C T   U M B R A",heading,cream,450);
+            Label(686,46,"A M B E R F A L L   G R O V E",small,muted,400);
+            int mins=(int)(Game.RunTimer/60f), secs=(int)(Game.RunTimer%60f);
+            Label(732,67,string.Format("{0:00}:{1:00}", mins, secs),number,mint,200);
+
+            Panel(new(1140,26,115,52));
+            if(Button(new(1148,36,99,31),Game.AutoAim?"AIM: AUTO":"AIM: MANUAL",Game.AutoAim))Game.AutoAim=!Game.AutoAim;
+
             Panel(new(1265,26,308,52));
             if(Button(new(1275,36,90,31),"RUNES  [TAB]",Game.RunePanel))Game.RunePanel=!Game.RunePanel;
             if(Button(new(1373,36,88,31),"GUIDE  [H]",Game.HelpPanel))Game.HelpPanel=!Game.HelpPanel;
@@ -106,18 +112,19 @@ namespace Umbra
             Label(200,835,"Saved locally",small,muted);
 
             Panel(new(447,789,704,83));
-            Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify("Hold left mouse to aim and fire."));
+            Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?"Auto-firing at nearest foe.":"Hold LMB to aim and fire."));
             Skill(598,"Q","WIND NOVA",Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
             Skill(735,"SPACE","QUICKSTEP",Game.DashRemaining,CombatRules.DashCooldown,()=>Game.TryDash());
             Skill(872,"E","MEND",Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
             if(Button(new(1009,802,126,55),"R\nCHANGE RUNE"))Game.SetRune((RuneKind)(((int)Game.Rune+1)%3));
-            Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune),small,gold);
+            Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?"AUTO-AIM ON":"MANUAL AIM"),small,gold);
             Label(1254,826,"WASD move   /   RMB travel",small,cream);
             Label(1254,847,"Scroll zoom   /   H controls",small,muted);
-            Label(28,880,"PRE-ALPHA  "+UmbraPrototype.Version+"   /   SINGLE-PLAYER PROTOTYPE",small,muted,700);
+            Label(28,880,"PRE-ALPHA  "+UmbraPrototype.Version+"   /   ROGUELITE HORDE SURVIVAL",small,muted,700);
 
             if(Game.RunePanel)DrawRunes();
             if(Game.HelpPanel)DrawGuide();
+            if(Game.Drafting)DrawDraft();
             if(Game.Paused)
             {
                 Box(new(0,0,1600,900),new(0,0,0,.5f));Panel(new(560,345,480,210));
@@ -132,6 +139,53 @@ namespace Umbra
             Rect rect=new(x,802,126,55);
             if(Button(rect,key+"\n"+(remaining>0?remaining.ToString("0.0")+"s":name)))action();
             if(remaining>0)Bar(x,856,126,1-remaining/cooldown,mint);
+        }
+        void DrawDraft()
+        {
+            Box(new Rect(0,0,1600,900),new Color(0,0,0,.78f));
+            Panel(new(250,150,1100,580));
+            Label(570,180,"L E V E L   U P !",title,gold);
+            Label(480,230,"Choose a boon to empower your spirit in the grove:",text,cream);
+
+            var perks = Game.ActiveDraft;
+            if(perks == null || perks.Count == 0) return;
+
+            float cardWidth = 310;
+            float cardHeight = 420;
+            float spacing = 35;
+            float startX = 250 + (1100 - (perks.Count * cardWidth + (perks.Count - 1) * spacing)) / 2f;
+
+            for(int i = 0; i < perks.Count; i++)
+            {
+                var perk = perks[i];
+                float x = startX + i * (cardWidth + spacing);
+                float y = 275;
+                Rect cardRect = new(x, y, cardWidth, cardHeight);
+
+                Color rarityColor = perk.Rarity switch
+                {
+                    "RARE" => gold,
+                    "UNCOMMON" => mint,
+                    _ => cream
+                };
+
+                Box(new Rect(x-2, y-2, cardWidth+4, cardHeight+4), rarityColor * 0.7f);
+                Box(cardRect, new Color(.055f, .085f, .07f, .97f));
+                Box(new Rect(x+5, y+5, cardWidth-10, 1), rarityColor * 0.4f);
+
+                Label(x+20, y+20, perk.Category + "  •  " + perk.Rarity, small, rarityColor, cardWidth-40);
+                var nameStyle = new GUIStyle(heading){fontSize=18, fontStyle=FontStyle.Bold};
+                Label(x+20, y+48, perk.Title, nameStyle, cream, cardWidth-40);
+                Box(new Rect(x+20, y+82, cardWidth-40, 2), new Color(rarityColor.r, rarityColor.g, rarityColor.b, .35f));
+
+                var wrapStyle = new GUIStyle(text){wordWrap=true, fontSize=15, normal={textColor=cream}};
+                GUI.Label(new Rect(x+20, y+100, cardWidth-40, 220), perk.Description, wrapStyle);
+
+                if(Button(new Rect(x+25, y+cardHeight-65, cardWidth-50, 44), "ACCEPT BOON", true))
+                {
+                    Game.ApplyPerk(perk);
+                }
+            }
         }
         void DrawRunes()
         {
@@ -155,7 +209,16 @@ namespace Umbra
         {
             Box(new(0,0,1600,900),new(0,0,0,.45f));Panel(new(480,228,640,455));
             Label(516,254,"WELCOME, WANDERER",title);
-            string[] lines={"WASD / Arrow keys     Move through the grove","Right mouse                 Travel to a point (no pathfinding)","Hold left mouse            Aim and fire spirit arrows","Q                                   Wind Nova: a ring of arrows","Space                            Quickstep with brief invulnerability","E                                    Mend: restore health","R / 1 / 2 / 3                   Change your support rune","Tab                                Open the rune collection","Walk over amber shards to collect them.","Shards and rune choice persist. Combat resets each session."};
+            string[] lines={"WASD / Arrow keys     Move through the grove",
+                            "Right mouse                 Travel to a point (no pathfinding)",
+                            "Left mouse / Auto-aim  Fire spirit arrows at nearby enemies",
+                            "Q                                   Wind Nova: a ring of arrows",
+                            "Space                            Quickstep with brief invulnerability",
+                            "E                                    Mend: restore health",
+                            "R / 1 / 2 / 3                   Change your support rune",
+                            "Tab                                Open the rune collection",
+                            "Collect amber shards & level up to draft powerful boons!",
+                            "Enemies spawn in scaling hordes. Survive as long as you can."};
             for(int i=0;i<lines.Length;i++)Label(516,316+i*27,lines[i],i>7?small:text,i>7?muted:cream);
             if(Button(new(516,618,568,38),"BEGIN EXPLORING  [H]"))Game.HelpPanel=false;
         }

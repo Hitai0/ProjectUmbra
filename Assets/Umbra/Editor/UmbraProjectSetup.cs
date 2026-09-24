@@ -51,6 +51,7 @@ namespace Umbra.Editor
             const string pipelinePath="Assets/Umbra/Settings/UmbraURP.asset";
             var renderer=AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath);
             if(!renderer){renderer=ScriptableObject.CreateInstance<UniversalRendererData>();renderer.name="UmbraRenderer";AssetDatabase.CreateAsset(renderer,rendererPath);}
+            EnsureSSAO(renderer);
             var pipeline=AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(pipelinePath);
             if(!pipeline)
             {
@@ -65,6 +66,7 @@ namespace Umbra.Editor
             QualitySettings.SetQualityLevel(old);
             QualitySettings.vSyncCount=0;
             PlayerSettings.companyName="Project Umbra";PlayerSettings.productName="Project Umbra";
+            PlayerSettings.bundleVersion="0.1.2";
             PlayerSettings.defaultScreenWidth=1600;PlayerSettings.defaultScreenHeight=900;
             PlayerSettings.runInBackground=true;
             PlayerSettings.WebGL.compressionFormat=WebGLCompressionFormat.Disabled;
@@ -112,6 +114,11 @@ namespace Umbra.Editor
             var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{ScenePath},target=BuildTarget.WebGL,locationPathName="Builds/Web",options=BuildOptions.None});
             File.WriteAllText(".umbra-build",report.summary.result+" | "+report.summary.totalSize+" bytes | "+report.summary.totalTime);
             if(report.summary.result!=BuildResult.Succeeded)throw new Exception("Web build failed: "+report.summary.result);
+            if(File.Exists("Tools/web_shell.html"))
+            {
+                string shell=File.ReadAllText("Tools/web_shell.html").Replace("@@BUILD_NAME@@","Web");
+                File.WriteAllText("Builds/Web/index.html",shell);
+            }
         }
         [MenuItem("Umbra/Run gameplay smoke tests (Play Mode)")]
         public static void RunSmokeTests()
@@ -122,6 +129,21 @@ namespace Umbra.Editor
         }
         [MenuItem("Umbra/Capture prototype (Play Mode)")]
         public static void Capture(){Directory.CreateDirectory("Recordings");ScreenCapture.CaptureScreenshot("Recordings/Amberfall.png");}
+        public static void EnsureSSAO(UniversalRendererData renderer)
+        {
+            if(!renderer)return;
+            foreach(var f in renderer.rendererFeatures)if(f is ScreenSpaceAmbientOcclusion)return;
+            var ssao=ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>();
+            ssao.name="ScreenSpaceAmbientOcclusion";
+            AssetDatabase.AddObjectToAsset(ssao,renderer);
+            var serialized=new SerializedObject(renderer);
+            var prop=serialized.FindProperty("m_RendererFeatures");
+            int idx=prop.arraySize++;
+            prop.GetArrayElementAtIndex(idx).objectReferenceValue=ssao;
+            serialized.ApplyModifiedProperties();
+            EditorUtility.SetDirty(renderer);
+            AssetDatabase.SaveAssets();
+        }
     }
 
     public sealed class UmbraTextureImporter : AssetPostprocessor

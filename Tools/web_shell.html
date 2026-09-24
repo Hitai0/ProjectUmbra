@@ -28,7 +28,7 @@
     <button id="enter">ENTER THE GROVE</button>
     <progress id="progress" value="0" max="1"></progress>
     <div id="status">Desktop browser recommended · Keyboard &amp; mouse</div>
-  </div><div class="footer">PRE-ALPHA 0.1.0 · SINGLE-PLAYER PROTOTYPE<br>WASD MOVE &nbsp; / &nbsp; MOUSE AIM &nbsp; / &nbsp; SPACE QUICKSTEP</div></div>
+  </div><div class="footer">PRE-ALPHA 0.1.2 · ROGUELITE HORDE SURVIVAL PROTOTYPE<br>WASD MOVE &nbsp; / &nbsp; MOUSE AIM &nbsp; / &nbsp; SPACE QUICKSTEP &nbsp; / &nbsp; LEVEL UP BOONS</div></div>
   <div id="error" role="alert"></div>
   <script>
     const canvas=document.querySelector('#game'),enter=document.querySelector('#enter'),status=document.querySelector('#status'),progress=document.querySelector('#progress');
@@ -36,16 +36,21 @@
     function showError(message){document.querySelector('#error').style.display='block';document.querySelector('#error').textContent=String(message);status.textContent='The grove could not load. See the message above.';}
     enter.addEventListener('click',()=>{
       enter.disabled=true;enter.textContent='OPENING THE PATH';progress.style.display='block';
-      const script=document.createElement('script');script.src='Build/@@BUILD_NAME@@.loader.js';
+      const v='0.1.2';
+      const script=document.createElement('script');script.src='Build/@@BUILD_NAME@@.loader.js?v='+v;
       script.onerror=()=>showError('Unity loader could not be downloaded. Check the Web build and local server.');
       script.onload=()=>createUnityInstance(canvas,{
-        dataUrl:'Build/@@BUILD_NAME@@.data',frameworkUrl:'Build/@@BUILD_NAME@@.framework.js',codeUrl:'Build/@@BUILD_NAME@@.wasm',
-        streamingAssetsUrl:'StreamingAssets',companyName:'Project Umbra',productName:'Project Umbra',productVersion:'0.1.0',
+        dataUrl:'Build/@@BUILD_NAME@@.data?v='+v,frameworkUrl:'Build/@@BUILD_NAME@@.framework.js?v='+v,codeUrl:'Build/@@BUILD_NAME@@.wasm?v='+v,
+        streamingAssetsUrl:'StreamingAssets',companyName:'Project Umbra',productName:'Project Umbra',productVersion:v,
+        cacheControl:function(url){return "no-store";},
         devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5),
         showBanner:(message,type)=>{if(type==='error')showError(message);else console.warn(message);}
       },value=>{progress.value=value;status.textContent=value<.9?'Gathering the forest… '+Math.round(value*100)+'%':'Waking the grove…';})
       .then(instance=>{window.umbra=instance;document.querySelector('#welcome').style.display='none';canvas.focus();})
-      .catch(showError);
+      .catch(err=>{
+        if(window.indexedDB){try{indexedDB.deleteDatabase('UnityCache');}catch(e){}}
+        showError(err);
+      });
       document.body.appendChild(script);
     });
   </script>

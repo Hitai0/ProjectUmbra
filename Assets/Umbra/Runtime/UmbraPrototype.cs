@@ -11,9 +11,11 @@ namespace Umbra
 {
     public sealed class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.2";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
+        public int MaxHealthBonus { get; private set; }
+        public int MaxHealth => CombatRules.MaxHealth + MaxHealthBonus;
         public int Health { get; private set; } = CombatRules.MaxHealth;
         public int Level { get; private set; } = 1;
         public int Experience { get; private set; }
@@ -21,6 +23,15 @@ namespace Umbra
         public int Shards { get; private set; }
         public int Collected { get; private set; }
         public RuneKind Rune { get; private set; }
+        public float AttackSpeedMultiplier { get; private set; } = 1.0f;
+        public float MoveSpeedMultiplier { get; private set; } = 1.0f;
+        public int BonusProjectiles { get; private set; }
+        public float PickupRadius { get; private set; } = 5.0f;
+        public bool HasNovaPulse { get; private set; }
+        public bool AutoAim { get; set; } = true;
+        public bool Drafting { get; private set; }
+        public List<CombatRules.Perk> ActiveDraft { get; private set; } = new();
+        public float RunTimer { get; private set; }
         public bool RunePanel;
         public bool HelpPanel;
         public bool Paused;
@@ -64,6 +75,7 @@ namespace Umbra
         readonly Dictionary<string, Material> materials = new();
         readonly List<UnityEngine.Object> owned = new();
         Transform world, actorVisual;
+        DepthOfField dof;
         Mesh crownMesh;
         SpriteRenderer playerSprite;
         Sprite[] rangerFrames;
@@ -71,7 +83,8 @@ namespace Umbra
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
         bool walkingTo, questComplete;
         float attackAt, volleyAt, dashAt, healAt, invulnerableUntil, dashUntil, lastHitAt, elapsed;
-        readonly Vector3 cameraOffset = new(0, 16f, -13.5f);
+        float nextHordeSpawn = 2.5f, nextNovaPulse;
+        readonly Vector3 cameraOffset = new(0, 18.5f, -15.5f);
         readonly Color gold = new(1f, .72f, .27f);
         readonly Color mint = new(.46f, .91f, .72f);
 
@@ -117,21 +130,20 @@ namespace Umbra
             world = new GameObject("Amberfall • environment").transform;
             world.SetParent(transform);
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(.58f, .63f, .60f);
-            RenderSettings.ambientEquatorColor = new Color(.42f, .45f, .31f);
-            RenderSettings.ambientGroundColor = new Color(.22f, .26f, .20f);
+            RenderSettings.ambientSkyColor = new Color(.66f, .62f, .52f);
+            RenderSettings.ambientEquatorColor = new Color(.46f, .42f, .28f);
+            RenderSettings.ambientGroundColor = new Color(.20f, .18f, .14f);
             RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(.35f, .40f, .35f);
-            RenderSettings.fogStartDistance = 34;
-            RenderSettings.fogEndDistance = 72;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = new Color(.48f, .42f, .32f);
+            RenderSettings.fogDensity = .011f;
             var cameraObject = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener), typeof(UniversalAdditionalCameraData));
             cameraObject.tag = "MainCamera";
             WorldCamera = cameraObject.GetComponent<Camera>();
-            WorldCamera.orthographic = true;
-            WorldCamera.orthographicSize = 9.3f;
-            WorldCamera.nearClipPlane = .1f;
-            WorldCamera.farClipPlane = 95;
+            WorldCamera.orthographic = false;
+            WorldCamera.fieldOfView = 34f;
+            WorldCamera.nearClipPlane = .3f;
+            WorldCamera.farClipPlane = 120;
             WorldCamera.backgroundColor = RenderSettings.fogColor;
             WorldCamera.clearFlags = CameraClearFlags.SolidColor;
             cameraObject.transform.position = cameraOffset;
@@ -139,34 +151,66 @@ namespace Umbra
             var cameraData = cameraObject.GetComponent<UniversalAdditionalCameraData>();
             cameraData.renderPostProcessing = true;
             cameraData.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+            cameraData.volumeLayerMask = ~0;
+            cameraData.volumeTrigger = cameraObject.transform;
             var sunlight = new GameObject("Late afternoon sun", typeof(Light)).GetComponent<Light>();
             sunlight.type = LightType.Directional;
-            sunlight.color = new Color(1, .81f, .53f);
-            sunlight.intensity = 1.65f;
+            sunlight.color = new Color(1f, .85f, .60f);
+            sunlight.intensity = 2.2f;
             sunlight.shadows = LightShadows.Soft;
-            sunlight.shadowStrength = .65f;
-            sunlight.transform.rotation = Quaternion.Euler(42, -42, 0);
+            sunlight.shadowStrength = .80f;
+            sunlight.transform.rotation = Quaternion.Euler(38f, -44f, 0);
             var volume = new GameObject("Amber atmosphere", typeof(Volume)).GetComponent<Volume>();
             volume.isGlobal = true;
+            volume.priority = 100f;
             volume.profile = ScriptableObject.CreateInstance<VolumeProfile>();
             owned.Add(volume.profile);
+
+            var tone = volume.profile.Add<Tonemapping>();
+            tone.mode.Override(TonemappingMode.ACES);
+
+            var wb = volume.profile.Add<WhiteBalance>();
+            wb.temperature.Override(20f);
+            wb.tint.Override(-2f);
+
             var grading = volume.profile.Add<ColorAdjustments>();
-            grading.postExposure.Override(.10f);
-            grading.contrast.Override(12);
-            grading.saturation.Override(5);
-            var vignette = volume.profile.Add<Vignette>();
-            vignette.intensity.Override(.23f);
-            vignette.smoothness.Override(.65f);
+            grading.postExposure.Override(.22f);
+            grading.contrast.Override(26f);
+            grading.saturation.Override(24f);
+            grading.colorFilter.Override(new Color(1f, .96f, .89f));
+
+            var smh = volume.profile.Add<ShadowsMidtonesHighlights>();
+            smh.shadows.Override(new Vector4(.22f, .18f, .14f, 0f));
+            smh.midtones.Override(new Vector4(1f, .95f, .86f, 0f));
+            smh.highlights.Override(new Vector4(1.06f, .95f, .78f, 0f));
+
             var bloom = volume.profile.Add<Bloom>();
-            bloom.intensity.Override(.24f);
-            bloom.threshold.Override(1.2f);
+            bloom.intensity.Override(.48f);
+            bloom.threshold.Override(1.05f);
+            bloom.scatter.Override(.70f);
+            bloom.tint.Override(new Color(1f, .88f, .65f));
+
+            dof = volume.profile.Add<DepthOfField>();
+            dof.mode.Override(DepthOfFieldMode.Bokeh);
+            dof.focusDistance.Override(24f);
+            dof.focalLength.Override(65f);
+            dof.aperture.Override(2.8f);
+
+            var vignette = volume.profile.Add<Vignette>();
+            vignette.intensity.Override(.28f);
+            vignette.smoothness.Override(.70f);
+            vignette.color.Override(new Color(.05f, .08f, .06f));
+
+            var grain = volume.profile.Add<FilmGrain>();
+            grain.type.Override(FilmGrainLookup.Medium1);
+            grain.intensity.Override(.08f);
             crownMesh=MakeCrownMesh();
-            var ground=Mat("moss",new(.8f,.8f,.8f));
+            var ground=Mat("moss",new(.44f,.48f,.34f));
             ground.mainTexture=Resources.Load<Texture2D>("Umbra/ground");ground.mainTextureScale=new Vector2(12,12);
             Shape("Forest floor", PrimitiveType.Cube, new(0, -.27f, 0), new(64, .5f, 64), ground);
             BuildGround();
             var bark = Mat("bark", new(.23f, .15f, .095f));
-            Color[] leaves = { new(.52f, .30f, .10f), new(.73f, .40f, .10f), new(.83f, .52f, .16f), new(.38f, .40f, .16f), new(.27f, .35f, .19f) };
+            Color[] leaves = { new(.88f, .44f, .12f), new(.96f, .58f, .14f), new(1.0f, .72f, .18f), new(.46f, .50f, .18f), new(.28f, .38f, .19f) };
             for (int i = 0; i < 108; i++)
             {
                 float x = Random.Range(-24f, 24f), z = Random.Range(-21f, 25f);
@@ -194,7 +238,7 @@ namespace Umbra
         {
             // Thousands of colored triangles in a few meshes rather than thousands of renderers.
             List<Vector3> verts = new(); List<int> tris = new(); List<Color> colors = new();
-            Color[] palette = { new(.34f,.40f,.18f), new(.41f,.43f,.21f), new(.27f,.34f,.17f), new(.52f,.43f,.21f), new(.64f,.50f,.22f) };
+            Color[] palette = { new(.32f,.42f,.18f), new(.46f,.46f,.20f), new(.24f,.34f,.15f), new(.68f,.45f,.16f), new(.78f,.52f,.18f), new(.58f,.32f,.14f) };
             for (int i = 0; i < 7600; i++)
             {
                 float x = Random.Range(-29f,29f), z = Random.Range(-28f,29f);
@@ -339,13 +383,16 @@ namespace Umbra
             Player=new GameObject("Wanderer • player").transform; Player.SetParent(transform); Player.position=new(0,0,-2);
             Shadow(Player,.75f); playerSprite=SpriteActor(Player,rangerFrames[0]); actorVisual=playerSprite.transform;
             Vector3[] homes={new(3,0,2),new(-3,0,3),new(4,0,6),new(-3,0,8),new(1,0,13),new(6,0,-3),new(-5,0,-5),new(5,0,12)};
-            for(int i=0;i<homes.Length;i++)
+            for(int i=0;i<24;i++)
             {
-                var enemy=new Enemy{home=homes[i],maxHp=i==7?180:65,elite=i==7,phase=Random.value*6.28f}; enemy.hp=enemy.maxHp;
-                enemy.root=new GameObject(enemy.elite?"Elder bloom":"Grove sprout").transform; enemy.root.SetParent(transform); enemy.root.position=enemy.home;
+                bool isElite = (i == 7 || i == 15 || i == 23);
+                Vector3 p = i < homes.Length ? homes[i] : new Vector3(Random.Range(-18f,18f),0,Random.Range(-16f,18f));
+                var enemy=new Enemy{home=p,maxHp=isElite?180:55,elite=isElite,phase=Random.value*6.28f}; enemy.hp=enemy.maxHp;
+                enemy.root=new GameObject(enemy.elite?"Elder bloom":"Grove creature").transform; enemy.root.SetParent(transform); enemy.root.position=enemy.home;
                 Shadow(enemy.root,enemy.elite?1.1f:.6f);
-                enemy.sprite=SpriteActor(enemy.root,i%3==0?mushroomSprite:sproutSprite,enemy.elite?1.5f:1);
+                enemy.sprite=SpriteActor(enemy.root,i%2==0?mushroomSprite:sproutSprite,enemy.elite?1.5f:1);
                 enemy.visual=enemy.sprite.transform; enemies.Add(enemy);
+                if(i >= 8) enemy.root.gameObject.SetActive(false);
             }
         }
 
@@ -359,8 +406,13 @@ namespace Umbra
                 if(keyboard.tabKey.wasPressedThisFrame) RunePanel=!RunePanel;
                 if(keyboard.hKey.wasPressedThisFrame) HelpPanel=!HelpPanel;
             }
-            if(Paused) return;
-            float dt=Time.deltaTime; elapsed+=dt;
+            if(Drafting || Paused) return;
+            float dt=Time.deltaTime; elapsed+=dt; RunTimer+=dt;
+            if(HasNovaPulse && Time.time >= nextNovaPulse)
+            {
+                nextNovaPulse = Time.time + 8f;
+                TryVolley();
+            }
             Vector2 input=Vector2.zero;
             if(keyboard!=null)
             {
@@ -375,10 +427,16 @@ namespace Umbra
                 if(keyboard.eKey.wasPressedThisFrame) TryHeal();
             }
             var mouse=Mouse.current;
+            bool manual = mouse!=null && mouse.leftButton.isPressed && !PointerOverHud();
             if(mouse!=null&&!PointerOverHud())
             {
                 if(mouse.rightButton.wasPressedThisFrame){moveTarget=MousePoint();walkingTo=true;}
-                if(mouse.leftButton.isPressed) TryAttack(MousePoint());
+                if(manual) TryAttack(MousePoint());
+            }
+            if(!manual && AutoAim)
+            {
+                Enemy target = FindNearestEnemy(Player.position, 12f);
+                if(target != null) TryAttack(target.root.position);
             }
             Vector3 direction=new(input.x,0,input.y);
             if(input.sqrMagnitude>0) walkingTo=false;
@@ -395,8 +453,8 @@ namespace Umbra
             playerSprite.sprite=moving?rangerFrames[1+(int)(elapsed*9)%2]:rangerFrames[0];
             actorVisual.localPosition=new(0,moving?Mathf.Abs(Mathf.Sin(elapsed*12))*.05f:0,0);
             playerSprite.color=Time.time<invulnerableUntil?new Color(.62f,1,1):Color.white;
-            UpdateEnemies(dt); UpdateShots(dt); UpdateLoot(dt); UpdateRings();
-            if(Time.time-lastHitAt>6&&Health<CombatRules.MaxHealth) Health=Mathf.Min(CombatRules.MaxHealth,Health+(Mathf.FloorToInt(elapsed*2)!=Mathf.FloorToInt((elapsed-dt)*2)?1:0));
+            UpdateHorde(dt); UpdateEnemies(dt); UpdateShots(dt); UpdateLoot(dt); UpdateRings();
+            if(Time.time-lastHitAt>6&&Health<MaxHealth) Health=Mathf.Min(MaxHealth,Health+(Mathf.FloorToInt(elapsed*2)!=Mathf.FloorToInt((elapsed-dt)*2)?1:0));
             if(!questComplete&&Kills>=6){questComplete=true;Shards+=25;SaveCollection();Notify("GROVE RESTORED  /  +25 amber shards");Pulse(Player.position,4,mint,.8f);}
         }
 
@@ -404,14 +462,19 @@ namespace Umbra
         {
             if(!Ready)return;
             WorldCamera.transform.position=Vector3.Lerp(WorldCamera.transform.position,Player.position+cameraOffset,1-Mathf.Exp(-6*Time.deltaTime));
-            if(Mouse.current!=null&&!PointerOverHud())WorldCamera.orthographicSize=Mathf.Clamp(WorldCamera.orthographicSize-Mouse.current.scroll.ReadValue().y*.003f,7.5f,12f);
+            if(Mouse.current!=null&&!PointerOverHud())
+            {
+                float scroll=Mouse.current.scroll.ReadValue().y;
+                if(Mathf.Abs(scroll)>0.01f)WorldCamera.fieldOfView=Mathf.Clamp(WorldCamera.fieldOfView-scroll*.015f,24f,46f);
+            }
+            if(dof!=null)dof.focusDistance.Override(Vector3.Distance(WorldCamera.transform.position,Player.position));
         }
         bool PointerOverHud()
         {
-            if(RunePanel||HelpPanel||Paused)return true;
+            if(Drafting||RunePanel||HelpPanel||Paused)return true;
             if(Mouse.current==null)return false;
             Vector2 p=Mouse.current.position.ReadValue();
-            return p.y<Screen.height*.16f || p.y>Screen.height*.85f || (p.x>Screen.width*.80f&&p.y>Screen.height*.49f);
+            return p.y<Screen.height*.16f || p.y>Screen.height*.85f || (p.x>Screen.width*.75f&&p.y>Screen.height*.45f);
         }
         Vector3 MousePoint()
         {
@@ -428,6 +491,7 @@ namespace Umbra
         }
         public void MovePlayer(Vector3 delta)
         {
+            delta *= MoveSpeedMultiplier;
             Vector3 p=Player.position;
             Vector3 x=p+new Vector3(delta.x,0,0); if(IsWalkable(x))p=x;
             Vector3 z=p+new Vector3(0,0,delta.z); if(IsWalkable(z))p=z;
@@ -436,12 +500,12 @@ namespace Umbra
         public void SetRune(RuneKind rune){Rune=rune;SaveCollection();Notify(CombatRules.RuneName(rune)+" equipped");}
         public bool TryAttack(Vector3 point)
         {
-            if(Paused||Time.time<attackAt)return false;
-            attackAt=Time.time+CombatRules.AttackCooldown;
+            if(Drafting||Paused||Time.time<attackAt)return false;
+            attackAt=Time.time+(CombatRules.AttackCooldown / AttackSpeedMultiplier);
             Vector3 dir=point-Player.position;dir.y=0;if(dir.sqrMagnitude<.01f)dir=facing;dir.Normalize();
             facing=dir;playerSprite.flipX=dir.x<0;
-            int count=CombatRules.ProjectileCount(Rune);
-            for(int i=0;i<count;i++) Fire(Quaternion.Euler(0,(i-(count-1)*.5f)*13,0)*dir,Rune,CombatRules.Damage(Rune,Level));
+            int count=CombatRules.ProjectileCount(Rune) + BonusProjectiles;
+            for(int i=0;i<count;i++) Fire(Quaternion.Euler(0,(i-(count-1)*.5f)*12,0)*dir,Rune,CombatRules.Damage(Rune,Level));
             return true;
         }
         void Fire(Vector3 direction,RuneKind rune,int damage)
@@ -454,37 +518,88 @@ namespace Umbra
         }
         public bool TryVolley()
         {
-            if(Paused||Time.time<volleyAt)return false;volleyAt=Time.time+CombatRules.VolleyCooldown;
+            if(Drafting||Paused||Time.time<volleyAt)return false;volleyAt=Time.time+CombatRules.VolleyCooldown;
             for(int i=0;i<12;i++)Fire(Quaternion.Euler(0,i*30,0)*Vector3.forward,Rune,CombatRules.Damage(Rune,Level));
             Pulse(Player.position,3.8f,mint,.5f);Notify("WIND NOVA");return true;
         }
         public bool TryDash()
         {
-            if(Paused||Time.time<dashAt)return false;dashAt=Time.time+CombatRules.DashCooldown;
+            if(Drafting||Paused||Time.time<dashAt)return false;dashAt=Time.time+CombatRules.DashCooldown;
             dashUntil=Time.time+.18f;invulnerableUntil=Time.time+.28f;dashDirection=facing;
             Pulse(Player.position,1,mint,.28f);return true;
         }
         public bool TryHeal()
         {
-            if(Paused||Time.time<healAt||Health>=CombatRules.MaxHealth)return false;
-            healAt=Time.time+CombatRules.HealCooldown;Health=Mathf.Min(CombatRules.MaxHealth,Health+55);
+            if(Drafting||Paused||Time.time<healAt||Health>=MaxHealth)return false;
+            healAt=Time.time+CombatRules.HealCooldown;Health=Mathf.Min(MaxHealth,Health+55);
             Popup(Player.position+Vector3.up,"+55",mint);Pulse(Player.position,2,mint,.6f);return true;
         }
+        public Enemy FindNearestEnemy(Vector3 origin, float maxDistance)
+        {
+            Enemy nearest = null;
+            float bestSq = maxDistance * maxDistance;
+            foreach(var e in enemies)
+            {
+                if(e.hp <= 0 || !e.root.gameObject.activeSelf) continue;
+                float sq = (e.root.position - origin).sqrMagnitude;
+                if(sq < bestSq)
+                {
+                    bestSq = sq;
+                    nearest = e;
+                }
+            }
+            return nearest;
+        }
+
+        void UpdateHorde(float dt)
+        {
+            if(Time.time < nextHordeSpawn) return;
+            float interval = Mathf.Clamp(3.2f - (RunTimer / 90f), 0.9f, 3.2f);
+            nextHordeSpawn = Time.time + interval;
+
+            int active = 0;
+            foreach(var e in enemies) if(e.hp > 0 && e.root.gameObject.activeSelf) active++;
+            int maxAllowed = Mathf.Min(8 + (int)(RunTimer / 10f), 24);
+            if(active >= maxAllowed) return;
+
+            foreach(var e in enemies)
+            {
+                if(e.hp <= 0 || !e.root.gameObject.activeSelf)
+                {
+                    float angle = Random.Range(0, Mathf.PI * 2);
+                    float dist = Random.Range(13f, 17f);
+                    Vector3 spawnPos = Player.position + new Vector3(Mathf.Cos(angle) * dist, 0, Mathf.Sin(angle) * dist);
+                    spawnPos.x = Mathf.Clamp(spawnPos.x, -21f, 21f);
+                    spawnPos.z = Mathf.Clamp(spawnPos.z, -19f, 21f);
+                    if(IsWalkable(spawnPos))
+                    {
+                        e.root.position = spawnPos;
+                        e.hp = e.maxHp;
+                        e.windupUntil = 0;
+                        e.attackAt = Time.time + Random.Range(0.5f, 1.2f);
+                        e.root.gameObject.SetActive(true);
+                        active++;
+                        if(active >= maxAllowed) break;
+                    }
+                }
+            }
+        }
+
         void UpdateEnemies(float dt)
         {
             foreach(var e in enemies)
             {
-                if(e.hp<=0){if(Time.time>e.respawnAt){e.hp=e.maxHp;e.root.position=e.home;e.root.gameObject.SetActive(true);}else continue;}
+                if(e.hp<=0) continue;
                 Vector3 delta=Player.position-e.root.position;float distance=delta.magnitude;
-                Vector3 goal=distance<6.5f?Player.position:e.home+new Vector3(Mathf.Sin(elapsed*.35f+e.phase),0,Mathf.Cos(elapsed*.35f+e.phase));
+                Vector3 goal=Player.position;
                 if(e.windupUntil>0)
                 {
-                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(e.elite?24:12);e.windupUntil=0;e.attackAt=Time.time+1.5f;}
+                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(e.elite?24:12);e.windupUntil=0;e.attackAt=Time.time+1.4f;}
                 }
                 else if(distance<1.05f&&Time.time>=e.attackAt){e.windupUntil=Time.time+.7f;Pulse(e.root.position,1.3f,new(1,.32f,.2f),.7f);}
                 else if(distance>1.0f)
                 {
-                    Vector3 next=Vector3.MoveTowards(e.root.position,goal,dt*(distance<6.5f?1.25f:.4f));
+                    Vector3 next=Vector3.MoveTowards(e.root.position,goal,dt*(distance<7f?(e.elite?1.1f:1.35f):.6f));
                     if(IsWalkable(next))e.root.position=next;
                 }
                 e.visual.localPosition=new(0,Mathf.Abs(Mathf.Sin(elapsed*4+e.phase))*.10f,0);
@@ -499,7 +614,7 @@ namespace Umbra
                 Shot s=shots[i];Vector3 before=s.root.position;Vector3 after=before+s.velocity*dt;s.root.position=after;
                 foreach(var e in enemies)
                 {
-                    if(e.hp<=0||s.hit.Contains(e))continue;
+                    if(e.hp<=0||!e.root.gameObject.activeSelf||s.hit.Contains(e))continue;
                     Vector3 p=e.root.position+Vector3.up*.6f;
                     Vector3 segment=after-before;
                     float t=Mathf.Clamp01(Vector3.Dot(p-before,segment)/Mathf.Max(.0001f,segment.sqrMagnitude));
@@ -516,24 +631,88 @@ namespace Umbra
             if(e.hp<=0)return;e.hp-=damage;e.flashUntil=Time.time+.12f;
             Popup(e.root.position+Vector3.up*1.2f,damage.ToString(),gold);
             if(e.hp>0)return;
-            e.root.gameObject.SetActive(false);e.respawnAt=Time.time+18;e.windupUntil=0;Kills++;
+            e.root.gameObject.SetActive(false);e.respawnAt=Time.time+14;e.windupUntil=0;Kills++;
             Experience+=e.elite?50:20;
-            if(Experience>=CombatRules.ExperienceToLevel(Level)){Experience-=CombatRules.ExperienceToLevel(Level);Level++;Health=CombatRules.MaxHealth;Notify("LEVEL "+Level+"  /  Health restored");Pulse(Player.position,4,gold,.8f);}
+            if(Experience>=CombatRules.ExperienceToLevel(Level))
+            {
+                Experience-=CombatRules.ExperienceToLevel(Level);
+                TriggerLevelUp();
+            }
             var item=Shape("Amber shard",PrimitiveType.Cube,e.root.position+Vector3.up*.35f,Vector3.one*.22f,Mat("loot amber",new(1.6f,.8f,.19f),true),transform);
             loot.Add(new Loot{root=item.transform,phase=Random.value*5});
+        }
+        public void TriggerLevelUp()
+        {
+            Level++;
+            Health = MaxHealth;
+            Notify("LEVEL " + Level + "! CHOOSE A BOON");
+            Pulse(Player.position, 4, gold, .8f);
+            ActiveDraft = CombatRules.RollPerks(3);
+            Drafting = true;
+            Time.timeScale = 0;
+        }
+        public void ApplyPerk(CombatRules.Perk perk)
+        {
+            switch (perk.Kind)
+            {
+                case CombatRules.PerkKind.RunePierce:
+                    SetRune(RuneKind.Pierce);
+                    break;
+                case CombatRules.PerkKind.RuneScatter:
+                    SetRune(RuneKind.Scatter);
+                    break;
+                case CombatRules.PerkKind.RuneEmber:
+                    SetRune(RuneKind.Ember);
+                    break;
+                case CombatRules.PerkKind.RapidFire:
+                    AttackSpeedMultiplier += 0.25f;
+                    Notify("+25% Attack Speed");
+                    break;
+                case CombatRules.PerkKind.SwiftBoots:
+                    MoveSpeedMultiplier += 0.18f;
+                    Notify("+18% Move Speed");
+                    break;
+                case CombatRules.PerkKind.Multishot:
+                    BonusProjectiles += 1;
+                    Notify("+1 Projectile to attacks");
+                    break;
+                case CombatRules.PerkKind.Vitality:
+                    MaxHealthBonus += 35;
+                    Health = Mathf.Min(MaxHealth, Health + 50);
+                    Notify("+35 Max Health & Healed");
+                    break;
+                case CombatRules.PerkKind.Magnetism:
+                    PickupRadius += 3.5f;
+                    Notify("+60% Shard Magnet Pull");
+                    break;
+                case CombatRules.PerkKind.WindNovaPulse:
+                    HasNovaPulse = true;
+                    nextNovaPulse = Time.time + 8f;
+                    Notify("Gale Ward: Auto Nova active");
+                    break;
+            }
+            Drafting = false;
+            Time.timeScale = Paused ? 0 : 1;
         }
         public void HurtPlayer(int damage)
         {
             if(Time.time<invulnerableUntil)return;Health=Mathf.Max(0,Health-damage);lastHitAt=Time.time;
             Popup(Player.position+Vector3.up*1.6f,"-"+damage,new(1,.4f,.3f));
-            if(Health==0){Player.position=new(0,0,-2);Health=CombatRules.MaxHealth;invulnerableUntil=Time.time+3;walkingTo=false;Notify("The grove returns you to the trail. No shards lost.");foreach(var e in enemies){e.root.position=e.home;e.windupUntil=0;}}
+            if(Health==0){Player.position=new(0,0,-2);Health=MaxHealth;invulnerableUntil=Time.time+3;walkingTo=false;Notify("The grove returns you to the trail. No shards lost.");foreach(var e in enemies){e.root.position=e.home;e.windupUntil=0;}}
         }
         void UpdateLoot(float dt)
         {
             for(int i=loot.Count-1;i>=0;i--)
             {
-                var l=loot[i];l.root.Rotate(0,80*dt,0);var p=l.root.position;p.y=.4f+Mathf.Sin(elapsed*3+l.phase)*.10f;l.root.position=p;
-                if(Vector2.Distance(new(p.x,p.z),new(Player.position.x,Player.position.z))<1.3f){Shards+=3;Collected++;SaveCollection();Popup(Player.position+Vector3.up,"+3 amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
+                var l=loot[i];l.root.Rotate(0,80*dt,0);var p=l.root.position;p.y=.4f+Mathf.Sin(elapsed*3+l.phase)*.10f;
+                float dist = Vector2.Distance(new(p.x,p.z),new(Player.position.x,Player.position.z));
+                if(dist < PickupRadius)
+                {
+                    Vector3 target = Player.position + Vector3.up * .35f;
+                    p = Vector3.MoveTowards(p, target, dt * (12f + (PickupRadius - dist) * 4f));
+                }
+                l.root.position=p;
+                if(dist<1.35f){Shards+=3;Collected++;SaveCollection();Popup(Player.position+Vector3.up,"+3 amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
             }
         }
         public void Notify(string message){Notice=message;NoticeUntil=Time.time+4;}
@@ -578,7 +757,7 @@ namespace Umbra
         public IEnumerator SmokeTest(Action<string> complete)
         {
             yield return null;
-            Health=CombatRules.MaxHealth;healAt=volleyAt=0;invulnerableUntil=0;
+            Health=MaxHealth;healAt=volleyAt=0;invulnerableUntil=0;Drafting=false;Time.timeScale=1;
             int originalShards=Shards;
             List<string> checks=new();
             Vector3 start=Player.position;MovePlayer(Vector3.right*.5f);
@@ -587,10 +766,11 @@ namespace Umbra
             foreach(RuneKind kind in Enum.GetValues(typeof(RuneKind)))if(CombatRules.ProjectileCount(kind)<1)throw new Exception("Rune invalid");checks.Add("three rune definitions");
             var e=enemies[0];int before=e.hp;DamageEnemy(e,10);if(e.hp!=before-10)throw new Exception("Damage failed");checks.Add("enemy damage");
             int kills=Kills;DamageEnemy(e,999);if(Kills!=kills+1||e.root.gameObject.activeSelf)throw new Exception("Death failed");checks.Add("death, XP and drop");
+            if(Drafting){Drafting=false;Time.timeScale=1;}
             Player.position=e.root.position;int shards=Shards;UpdateLoot(0);if(Shards!=shards+3)throw new Exception("Pickup failed");checks.Add("pickup and persistence");
-            Health=CombatRules.MaxHealth;invulnerableUntil=0;HurtPlayer(30);if(!TryHeal()||Health!=CombatRules.MaxHealth)throw new Exception("Heal failed");checks.Add("healing");
+            Health=MaxHealth;invulnerableUntil=0;HurtPlayer(30);if(!TryHeal()||Health!=MaxHealth)throw new Exception("Heal failed");checks.Add("healing");
             if(!TryVolley()||TryVolley())throw new Exception("Cooldown failed");checks.Add("cooldown enforcement");
-            Health=1;invulnerableUntil=0;HurtPlayer(2);if(Health!=CombatRules.MaxHealth)throw new Exception("Respawn failed");checks.Add("player respawn");
+            Health=1;invulnerableUntil=0;HurtPlayer(2);if(Health!=MaxHealth)throw new Exception("Respawn failed");checks.Add("player respawn");
             Player.position=start;Shards=originalShards;SaveCollection();complete("PASS: "+string.Join(", ",checks));
         }
     }
