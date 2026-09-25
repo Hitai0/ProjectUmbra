@@ -1,4 +1,4 @@
-# Project Umbra — refined playable design, v0.2.2
+# Project Umbra — refined playable design, v0.2.3
 
 This replaces the earlier MMO and open-ended horde assumptions. The current target is a **single-player** 15-minute action roguelite. The supplied refined plan v2 is the reference; the decisions below describe the implemented slice, not future promises.
 
@@ -60,5 +60,11 @@ Recommended levels are guidance, not extra locks. The three routes share geograp
 ## Presentation and follow-up scope
 
 Camp and results screens make objectives and banked rewards explicit. Pause, stat, guide, draft and build menus stop combat. Gold outlines telegraph future damage; red marks active hazards. Boss arena boundaries and timer backplates improve readability. Generated original attack/hurt/reward tones are optional, as is depth of field.
+
+In v0.2.3, Level Up features a dedicated Ragnarok-inspired sequence:
+- A translucent golden pillar of light (alpha 0.28, double-sided, 0.5s auto-fade) and warm point light cast over the player.
+- Radial safety knockback pushing enemies within 3.0m back to 3.5m to eliminate cheap unpause hits.
+- Synthesized 4-note ascending chime arpeggio (C5, E5, G5, C6) with 2nd harmonic bell overtones.
+- Polished draft UI: 0.15s backdrop fade, staggered card entrance (0.05s intervals, EaseOutBack curve), hover lift (8px upward), and zero-lock quick-select hotkeys `[1]`, `[2]`, `[3]` and `[R]`.
 
 Next art/content pass: bespoke class sprites, richer music/SFX, additional enemy attack patterns, persistent card collection/socket UI, stagger, and more differentiated boss movement. These are not represented as implemented features. This release retains the existing procedural forest instead of claiming production Octopath-quality assets.

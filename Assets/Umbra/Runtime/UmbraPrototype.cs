@@ -11,7 +11,7 @@ namespace Umbra
 {
     public sealed partial class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.2.2";
+        public const string Version = "0.2.3";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
@@ -39,6 +39,7 @@ namespace Umbra
         public bool HasNovaPulse { get; private set; }
         public bool AutoAim { get; set; } = true;
         public bool Drafting { get; private set; }
+        public float DraftOpenedAt { get; private set; }
         public List<CombatRules.Perk> ActiveDraft { get; private set; } = new();
         public float RunTimer { get; private set; }
         public bool RunePanel;
@@ -87,6 +88,8 @@ namespace Umbra
         readonly Dictionary<string, Material> materials = new();
         readonly List<UnityEngine.Object> owned = new();
         Transform world, actorVisual;
+        GameObject activePillar;
+        Light activePillarLight;
         DepthOfField dof;
         Mesh crownMesh;
         SpriteRenderer playerSprite;
@@ -195,6 +198,27 @@ namespace Umbra
             material.name=key;material.color=color;
             if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", .06f);
             material.enableInstancing = true;
+            materials.Add(key, material);
+            owned.Add(material);
+            return material;
+        }
+
+        Material TransparentMat(string key, Color color)
+        {
+            if (materials.TryGetValue(key, out Material existing)) return existing;
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (!shader) shader = Shader.Find("Unlit/Color");
+            var material = new Material(shader);
+            material.name = key;
+            material.SetFloat("_Surface", 1);
+            material.SetFloat("_Blend", 0);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.SetFloat("_Cull", 0);
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.SetColor("_BaseColor", color);
+            material.color = color;
             materials.Add(key, material);
             owned.Add(material);
             return material;
@@ -744,10 +768,87 @@ namespace Umbra
             var item=Shape("Amber shard",PrimitiveType.Cube,e.root.position+Vector3.up*.35f,Vector3.one*.22f,Mat("loot amber",new(1.6f,.8f,.19f),true),transform);
             loot.Add(new Loot{root=item.transform,phase=Random.value*5,shards=e.elite?9:3,exp=e.elite?30:10});
         }
+        void ApplyLevelUpKnockback()
+        {
+            foreach(var e in enemies)
+            {
+                if(e.hp<=0||!e.root.gameObject.activeSelf)continue;
+                Vector3 diff=e.root.position-Player.position;
+                diff.y=0;
+                float dist=diff.magnitude;
+                if(dist<3.0f)
+                {
+                    Vector3 dir=dist>0.01f?diff/dist:Vector3.back;
+                    e.root.position=Player.position+dir*3.5f;
+                }
+            }
+        }
+
+        void SpawnLevelUpVfx()
+        {
+            if(activePillar!=null)Destroy(activePillar);
+            if(activePillarLight!=null)Destroy(activePillarLight.gameObject);
+
+            Pulse(Player.position, 3.8f, new Color(1f, 0.85f, 0.32f), 0.6f);
+            Popup(Player.position + Vector3.up * 2.2f, "★ LEVEL UP! ★", new Color(1f, 0.92f, 0.38f));
+
+            var pillarMat = TransparentMat("vfx_pillar", new Color(1f, 0.88f, 0.35f, 0.28f));
+            activePillar = Shape("Golden Pillar", PrimitiveType.Cylinder, Player.position + Vector3.up * 5.5f, new Vector3(1.6f, 5.5f, 1.6f), pillarMat, transform);
+
+            var lightGo = new GameObject("LevelUp Light", typeof(Light));
+            lightGo.transform.SetParent(transform);
+            lightGo.transform.position = Player.position + Vector3.up * 2f;
+            activePillarLight = lightGo.GetComponent<Light>();
+            activePillarLight.type = LightType.Point;
+            activePillarLight.range = 7f;
+            activePillarLight.color = new Color(1f, 0.85f, 0.45f);
+            activePillarLight.intensity = 2.4f;
+
+            StartCoroutine(AnimateLevelUpPillar(activePillar, activePillarLight, 0.5f));
+        }
+
+        IEnumerator AnimateLevelUpPillar(GameObject pillar, Light light, float duration)
+        {
+            float elapsed = 0f;
+            var renderer = pillar != null ? pillar.GetComponent<Renderer>() : null;
+            Material instMat = renderer != null ? renderer.material : null;
+            Color initColor = instMat != null ? instMat.GetColor("_BaseColor") : new Color(1f, 0.88f, 0.35f, 0.28f);
+            float initIntensity = light != null ? light.intensity : 2.4f;
+
+            while (elapsed < duration)
+            {
+                if (pillar == null) yield break;
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                if (instMat != null)
+                {
+                    Color c = initColor;
+                    c.a = Mathf.Lerp(initColor.a, 0f, t);
+                    instMat.SetColor("_BaseColor", c);
+                    instMat.color = c;
+                }
+                if (light != null)
+                {
+                    light.intensity = Mathf.Lerp(initIntensity, 0f, t);
+                }
+                yield return null;
+            }
+
+            if (instMat != null) Destroy(instMat);
+            if (pillar != null) Destroy(pillar);
+            if (light != null) Destroy(light.gameObject);
+        }
+
         public void TriggerLevelUp()
         {
             if(Phase!=RunPhase.Running||BossActive)return;
-            ActiveDraft=RollDraft();Drafting=true;SyncPause();PlayCue(2);
+            ApplyLevelUpKnockback();
+            SpawnLevelUpVfx();
+            DraftOpenedAt = Time.unscaledTime;
+            ActiveDraft = RollDraft();
+            Drafting = true;
+            SyncPause();
+            PlayCue(2);
         }
         public void ApplyPerk(CombatRules.Perk perk)
         {
@@ -765,6 +866,7 @@ namespace Umbra
                 case CombatRules.PerkKind.Magnetism:PickupRadius+=2;break;
                 case CombatRules.PerkKind.WindNovaPulse:HasNovaPulse=true;nextNovaPulse=Time.time+10;break;
             }
+            PlayCue(0);
             Notify(perk.Title+" acquired");Drafting=false;ActiveDraft.Clear();
             if(pendingDrafts>0){pendingDrafts--;TriggerLevelUp();}
             SyncPause();
@@ -830,7 +932,13 @@ namespace Umbra
             }
         }
         void SaveCollection() => SaveProfile();
-        void OnDestroy(){Time.timeScale=1;foreach(var o in owned)if(o)Destroy(o);}
+        void OnDestroy()
+        {
+            Time.timeScale=1;
+            if(activePillar)Destroy(activePillar);
+            if(activePillarLight)Destroy(activePillarLight.gameObject);
+            foreach(var o in owned)if(o)Destroy(o);
+        }
 
         public IEnumerator SmokeTest(Action<string> complete)
         {

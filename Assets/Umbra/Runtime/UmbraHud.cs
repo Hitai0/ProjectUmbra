@@ -158,50 +158,118 @@ namespace Umbra
             if(Button(rect,key+"\n"+(remaining>0?remaining.ToString("0.0")+"s":name)))action();
             if(remaining>0)Bar(x,856,126,1-remaining/cooldown,mint);
         }
+        float EaseOutBack(float x)
+        {
+            if (x >= 1f) return 1f;
+            float c1 = 1.70158f;
+            float c3 = c1 + 1f;
+            return 1f + c3 * Mathf.Pow(x - 1f, 3) + c1 * Mathf.Pow(x - 1f, 2);
+        }
         void DrawDraft()
         {
-            Box(new Rect(0,0,1600,900),new Color(0,0,0,.78f));
-            Panel(new(250,150,1100,580));
-            Label(570,180,"C H O O S E   A   B O O N",title,gold);
-            Label(480,230,"Choose a boon to empower your spirit in the grove:",text,cream);
-            if(Game.Rerolls>0&&Button(new(1035,192,250,36),"REROLL  /  "+Game.Rerolls+" LEFT"))Game.RerollDraft();
+            float animTime = Time.unscaledTime - Game.DraftOpenedAt;
+            if (animTime < 0f) animTime = 0f;
+
+            // Smooth backdrop fade (0.15s)
+            float backdropAlpha = Mathf.Lerp(0f, 0.78f, Mathf.Clamp01(animTime / 0.15f));
+            Box(new Rect(0, 0, 1600, 900), new Color(0, 0, 0, backdropAlpha));
+
+            Panel(new(250, 150, 1100, 580));
+            Label(570, 180, "C H O O S E   A   B O O N", title, gold);
+            Label(480, 230, "Choose a boon to empower your spirit in the grove:", text, cream);
+
+            if (Game.Rerolls > 0 && Button(new(1035, 192, 250, 36), "REROLL [R]  /  " + Game.Rerolls + " LEFT"))
+            {
+                Game.RerollDraft();
+                return;
+            }
 
             var perks = Game.ActiveDraft;
-            if(perks == null || perks.Count == 0) return;
+            if (perks == null || perks.Count == 0) return;
+
+            // Quick-select hotkeys: keyboard 1, 2, 3 or numpad 1, 2, 3 and R
+            int hotkeyChoice = -1;
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null)
+            {
+                if (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame) hotkeyChoice = 0;
+                else if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) hotkeyChoice = 1;
+                else if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) hotkeyChoice = 2;
+                else if (kb.rKey.wasPressedThisFrame && Game.Rerolls > 0)
+                {
+                    Game.RerollDraft();
+                    return;
+                }
+            }
+            if (Event.current.type == EventType.KeyDown)
+            {
+                if (Event.current.keyCode == KeyCode.Alpha1 || Event.current.keyCode == KeyCode.Keypad1) hotkeyChoice = 0;
+                else if (Event.current.keyCode == KeyCode.Alpha2 || Event.current.keyCode == KeyCode.Keypad2) hotkeyChoice = 1;
+                else if (Event.current.keyCode == KeyCode.Alpha3 || Event.current.keyCode == KeyCode.Keypad3) hotkeyChoice = 2;
+                else if (Event.current.keyCode == KeyCode.R && Game.Rerolls > 0)
+                {
+                    Game.RerollDraft();
+                    Event.current.Use();
+                    return;
+                }
+            }
+
+            if (hotkeyChoice >= 0 && hotkeyChoice < perks.Count)
+            {
+                Game.ApplyPerk(perks[hotkeyChoice]);
+                if (Event.current.type == EventType.KeyDown) Event.current.Use();
+                return;
+            }
 
             float cardWidth = 310;
             float cardHeight = 420;
             float spacing = 35;
             float startX = 250 + (1100 - (perks.Count * cardWidth + (perks.Count - 1) * spacing)) / 2f;
+            Vector2 mouseGui = (Vector2)GUI.matrix.inverse.MultiplyPoint3x4(Event.current.mousePosition);
 
-            for(int i = 0; i < perks.Count; i++)
+            for (int i = 0; i < perks.Count; i++)
             {
                 var perk = perks[i];
                 float x = startX + i * (cardWidth + spacing);
-                float y = 275;
+                float baseY = 275;
+
+                // Staggered entrance: card 0 at 0.00s, card 1 at 0.05s, card 2 at 0.10s
+                float cardStart = i * 0.05f;
+                float cardProgress = Mathf.Clamp01((animTime - cardStart) / 0.22f);
+                float easeY = EaseOutBack(cardProgress);
+                float animY = Mathf.LerpUnclamped(baseY + 70f, baseY, easeY);
+
+                // Hover lift (8px upward) once card has mostly entered
+                Rect hoverRect = new Rect(x, baseY, cardWidth, cardHeight);
+                bool isHovered = hoverRect.Contains(mouseGui);
+                float y = animY - (isHovered && cardProgress >= 0.95f ? 8f : 0f);
+
                 Rect cardRect = new(x, y, cardWidth, cardHeight);
 
                 Color rarityColor = perk.Rarity switch
                 {
                     "RARE" => gold,
-                    "EPIC" => new Color(.76f,.58f,1f),
+                    "EPIC" => new Color(.76f, .58f, 1f),
                     "UNCOMMON" => mint,
                     _ => cream
                 };
 
-                Box(new Rect(x-2, y-2, cardWidth+4, cardHeight+4), rarityColor * 0.7f);
+                if (isHovered) rarityColor = Color.Lerp(rarityColor, Color.white, 0.28f);
+
+                Box(new Rect(x - 2, y - 2, cardWidth + 4, cardHeight + 4), rarityColor * (isHovered ? 0.95f : 0.70f));
                 Box(cardRect, new Color(.055f, .085f, .07f, .97f));
-                Box(new Rect(x+5, y+5, cardWidth-10, 1), rarityColor * 0.4f);
+                Box(new Rect(x + 5, y + 5, cardWidth - 10, 1), rarityColor * 0.4f);
 
-                Label(x+20, y+20, perk.Category + "  •  " + perk.Rarity, small, rarityColor, cardWidth-40);
-                var nameStyle = new GUIStyle(heading){fontSize=18, fontStyle=FontStyle.Bold};
-                Label(x+20, y+48, perk.Title, nameStyle, cream, cardWidth-40);
-                Box(new Rect(x+20, y+82, cardWidth-40, 2), new Color(rarityColor.r, rarityColor.g, rarityColor.b, .35f));
+                Label(x + 20, y + 20, perk.Category + "  •  " + perk.Rarity, small, rarityColor, cardWidth - 40);
+                var nameStyle = new GUIStyle(heading) { fontSize = 18, fontStyle = FontStyle.Bold };
+                Label(x + 20, y + 48, perk.Title, nameStyle, cream, cardWidth - 40);
+                Box(new Rect(x + 20, y + 82, cardWidth - 40, 2), new Color(rarityColor.r, rarityColor.g, rarityColor.b, .35f));
 
-                var wrapStyle = new GUIStyle(text){wordWrap=true, fontSize=15, normal={textColor=cream}};
-                GUI.Label(new Rect(x+20, y+100, cardWidth-40, 220), perk.Description, wrapStyle);
+                var wrapStyle = new GUIStyle(text) { wordWrap = true, fontSize = 15, normal = { textColor = cream } };
+                GUI.Label(new Rect(x + 20, y + 100, cardWidth - 40, 220), perk.Description, wrapStyle);
 
-                if(Button(new Rect(x+25, y+cardHeight-65, cardWidth-50, 44), "ACCEPT BOON", true))
+                string btnLabel = "[" + (i + 1) + "] ACCEPT BOON";
+                if (Button(new Rect(x + 25, y + cardHeight - 65, cardWidth - 50, 44), btnLabel, true))
                 {
                     Game.ApplyPerk(perk);
                 }

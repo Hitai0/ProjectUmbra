@@ -139,6 +139,8 @@ namespace Umbra
         void ClearCombat()
         {
             if(arenaBoundary)Destroy(arenaBoundary.gameObject);
+            if(activePillar){Destroy(activePillar);activePillar=null;}
+            if(activePillarLight){Destroy(activePillarLight.gameObject);activePillarLight=null;}
             foreach(var e in enemies){e.hp=0;e.boss=false;e.windupUntil=e.burnUntil=0;e.root.gameObject.SetActive(false);e.visual.localScale=Vector3.one*(e.elite?1.5f:1);}
             foreach(var s in shots)if(s.root)Destroy(s.root.gameObject);shots.Clear();
             foreach(var s in hostileShots)if(s.root)Destroy(s.root.gameObject);hostileShots.Clear();
@@ -193,7 +195,7 @@ namespace Umbra
             }
             return result;
         }
-        public void RerollDraft(){if(!Drafting||Rerolls<=0)return;Rerolls--;ActiveDraft=RollDraft();}
+        public void RerollDraft(){if(!Drafting||Rerolls<=0)return;Rerolls--;DraftOpenedAt=Time.unscaledTime;ActiveDraft=RollDraft();PlayCue(0);}
         void CastNova()
         {
             for(int i=0;i<12;i++)Fire(Quaternion.Euler(0,i*30,0)*Vector3.forward,Rune,Mathf.RoundToInt(AttackDamage*.8f));
@@ -336,12 +338,43 @@ namespace Umbra
             if(!audioSource)
             {
                 audioSource=gameObject.AddComponent<AudioSource>();audioSource.playOnAwake=false;audioSource.volume=.12f;
+                audioSource.ignoreListenerPause=true;
                 cues=new AudioClip[3];
                 for(int c=0;c<3;c++)
                 {
-                    int n=c==0?1500:6000;float[] data=new float[n];
-                    for(int i=0;i<n;i++){float t=(float)i/22050;float envelope=(1f-(float)i/n);data[i]=Mathf.Sin(t*Mathf.PI*2*(c==0?640:c==1?140:880))*envelope*envelope;}
-                    cues[c]=AudioClip.Create("Umbra cue "+c,n,1,22050,false);cues[c].SetData(data,0);owned.Add(cues[c]);
+                    if(c==2)
+                    {
+                        int sr=22050;
+                        int n=(int)(sr*0.48f);
+                        float[] data=new float[n];
+                        float[] freqs={523.25f,659.25f,783.99f,1046.50f};
+                        int noteStep=(int)(sr*0.08f);
+                        for(int i=0;i<n;i++)
+                        {
+                            float sample=0f;
+                            for(int note=0;note<freqs.Length;note++)
+                            {
+                                int startSample=note*noteStep;
+                                if(i>=startSample)
+                                {
+                                    int noteIdx=i-startSample;
+                                    float t=(float)noteIdx/sr;
+                                    float dur=note==freqs.Length-1?(n-startSample):(sr*0.22f);
+                                    float env=Mathf.Clamp01(1f-(float)noteIdx/dur);
+                                    float wave=Mathf.Sin(t*Mathf.PI*2*freqs[note])*0.75f+Mathf.Sin(t*Mathf.PI*4*freqs[note])*0.25f;
+                                    sample+=wave*env*env;
+                                }
+                            }
+                            data[i]=Mathf.Clamp(sample*0.65f,-1f,1f);
+                        }
+                        cues[c]=AudioClip.Create("Umbra cue "+c,n,1,sr,false);cues[c].SetData(data,0);owned.Add(cues[c]);
+                    }
+                    else
+                    {
+                        int n=c==0?1500:6000;float[] data=new float[n];
+                        for(int i=0;i<n;i++){float t=(float)i/22050;float envelope=(1f-(float)i/n);data[i]=Mathf.Sin(t*Mathf.PI*2*(c==0?640:140))*envelope*envelope;}
+                        cues[c]=AudioClip.Create("Umbra cue "+c,n,1,22050,false);cues[c].SetData(data,0);owned.Add(cues[c]);
+                    }
                 }
             }
             audioSource.PlayOneShot(cues[cue]);

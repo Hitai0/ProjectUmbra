@@ -39,6 +39,9 @@ namespace Umbra
                 Player.position=e.root.position;UpdateLoot(0);Check(RunShards==3&&Shards==0&&EarnedExperience>xp,"amber pickup grants XP and shards");
                 int permanentLevel=BaseLevel;AwardRunExperience(200);Check(RunLevel>1&&BaseLevel==permanentLevel&&Drafting,"separate run progression");
                 while(Drafting)ApplyPerk(ActiveDraft[0]);
+                var e2=enemies[1];SpawnEnemy(e2,Player.position+Vector3.forward*1.5f,48);TriggerLevelUp();
+                Check((e2.root.position-Player.position).magnitude>=3.49f,"level up safety knockback");
+                while(Drafting)ApplyPerk(ActiveDraft[0]);
                 foreach(var p in CombatRules.AllPerks)if(p.Kind!=CombatRules.PerkKind.BattleFocus)perkRanks[p.Kind]=RankCap(p.Kind);
                 var capped=RollDraft();Check(capped.Count==1&&capped[0].Kind==CombatRules.PerkKind.BattleFocus,"exhausted draft fallback");
                 Health=MaxHealth-40;healAt=0;Check(TryHeal()&&!TryHeal(),"mend cooldown");
