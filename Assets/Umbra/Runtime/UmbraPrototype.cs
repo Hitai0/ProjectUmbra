@@ -106,6 +106,10 @@ namespace Umbra
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
         bool walkingTo;
         float attackAt, volleyAt, dashAt, healAt, invulnerableUntil, dashUntil, lastHitAt, elapsed;
+        internal const int GroundPointerLayer = 8, BlockerPointerLayer = 9;
+        // UI is handled before physics; triggers and Ignore Raycast are not world click blockers.
+        [SerializeField] LayerMask pointerMask = Physics.DefaultRaycastLayers & ~(1 << 5);
+        bool pointerCapturedByUi;
         int hordeCursor;
         float nextHordeSpawn = 2.5f, nextNovaPulse;
         readonly Vector3 cameraOffset = new(0, 18.5f, -15.5f);
@@ -243,15 +247,15 @@ namespace Umbra
             return material;
         }
 
-        GameObject Shape(string label, PrimitiveType type, Vector3 position, Vector3 scale, Material material, Transform parent = null)
+        GameObject Shape(string label, PrimitiveType type, Vector3 position, Vector3 scale, Material material, Transform parent = null, int pointerLayer = 2)
         {
             var go = GameObject.CreatePrimitive(type);
-            go.name = label;
+            go.name = label;go.layer=pointerLayer;
             go.transform.SetParent(parent == null ? world : parent, false);
             go.transform.localPosition = position;
             go.transform.localScale = scale;
             var collider = go.GetComponent<Collider>();
-            if (collider) Destroy(collider);
+            if (collider && pointerLayer != GroundPointerLayer && pointerLayer != BlockerPointerLayer) {collider.enabled=false;Destroy(collider);}
             go.GetComponent<Renderer>().sharedMaterial = material;
             return go;
         }
@@ -339,7 +343,7 @@ namespace Umbra
             crownMesh=MakeCrownMesh();
             var ground=Mat("moss",new(.44f,.48f,.34f));
             ground.mainTexture=Resources.Load<Texture2D>("Umbra/ground");ground.mainTextureScale=new Vector2(40,40);
-            Shape("Forest floor", PrimitiveType.Cube, new(0, -.27f, 0), new(CombatRules.FieldHalfSize*2+40, .5f, CombatRules.FieldHalfSize*2+40), ground);
+            Shape("Forest floor", PrimitiveType.Cube, new(0, -.27f, 0), new(CombatRules.FieldHalfSize*2+40, .5f, CombatRules.FieldHalfSize*2+40), ground, pointerLayer:GroundPointerLayer);
             BuildGround();
             var bark = Mat("bark", new(.23f, .15f, .095f));
             Color[] leaves = { new(.88f, .44f, .12f), new(.96f, .58f, .14f), new(1.0f, .72f, .18f), new(.46f, .50f, .18f), new(.28f, .38f, .19f) };
@@ -409,7 +413,7 @@ namespace Umbra
         void Tree(Vector3 p, float height, Material bark, Material foliage)
         {
             var root = new GameObject("Amber oak").transform; root.SetParent(world); root.position = p;
-            Shape("Trunk",PrimitiveType.Cylinder,new(0,height*.35f,0),new(.36f,height*.35f,.36f),bark,root);
+            Shape("Trunk",PrimitiveType.Cylinder,new(0,height*.35f,0),new(.36f,height*.35f,.36f),bark,root,pointerLayer:BlockerPointerLayer);
             for (int b = 0; b < 3; b++)
             {
                 var branch = Shape("Branch",PrimitiveType.Cylinder,new((b-1)*.32f,height*.53f,0),new(.12f,height*.18f,.12f),bark,root);
@@ -550,6 +554,11 @@ namespace Umbra
             }
 
             if (!IsMobile) return;
+            if(Phase!=RunPhase.Running||IsModal)
+            {
+                IsJoystickActive=false;joystickFingerId=-1;MobileMoveInput=Vector2.zero;
+                return;
+            }
 
             bool dashPressed = false;
             bool volleyPressed = false;
@@ -691,14 +700,23 @@ namespace Umbra
         void Update()
         {
             if(!Ready) return;
+            var pointer=Mouse.current;
+            if(pointer!=null)
+            {
+                if(!pointer.leftButton.isPressed&&!pointer.rightButton.isPressed)pointerCapturedByUi=false;
+                else if((pointer.leftButton.wasPressedThisFrame||pointer.rightButton.wasPressedThisFrame)&&PointerOverHud())pointerCapturedByUi=true;
+            }
             UpdateMobileInput();
             var keyboard=Keyboard.current;
             if(keyboard!=null)
             {
                 if(keyboard.escapeKey.wasPressedThisFrame) TogglePause();
-                if(keyboard.tabKey.wasPressedThisFrame) RunePanel=!RunePanel;
-                if(keyboard.hKey.wasPressedThisFrame) HelpPanel=!HelpPanel;
-                if(keyboard.cKey.wasPressedThisFrame) StatsPanel=!StatsPanel;
+                if(!Drafting&&!Paused)
+                {
+                    if(keyboard.tabKey.wasPressedThisFrame){RunePanel=!RunePanel;HelpPanel=StatsPanel=false;}
+                    if(keyboard.hKey.wasPressedThisFrame){HelpPanel=!HelpPanel;RunePanel=StatsPanel=false;}
+                    if(keyboard.cKey.wasPressedThisFrame){StatsPanel=!StatsPanel;RunePanel=HelpPanel=false;}
+                }
             }
             SyncPause();
             if(Phase!=RunPhase.Running || IsModal) return;
@@ -725,11 +743,11 @@ namespace Umbra
             }
             if(IsMobile && MobileMoveInput.sqrMagnitude > 0.001f) input = MobileMoveInput;
             var mouse=Mouse.current;
-            bool manual = mouse!=null && mouse.leftButton.isPressed && !PointerOverHud();
-            if(mouse!=null&&!PointerOverHud())
+            bool manual = mouse!=null && mouse.leftButton.isPressed && !PointerOverHud() && !pointerCapturedByUi;
+            if(mouse!=null&&!PointerOverHud()&&!pointerCapturedByUi&&TryMousePoint(out Vector3 mousePoint))
             {
-                if(mouse.rightButton.wasPressedThisFrame){moveTarget=MousePoint();walkingTo=true;}
-                if(manual) TryAttack(MousePoint());
+                if(mouse.rightButton.wasPressedThisFrame){moveTarget=mousePoint;walkingTo=true;}
+                if(manual)TryAttack(mousePoint);
             }
             if(!manual && AutoAim)
             {
@@ -778,15 +796,26 @@ namespace Umbra
             Vector2 pos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
             var ts = Touchscreen.current;
             if (IsMobile && ts != null && ts.primaryTouch.press.isPressed) pos = ts.primaryTouch.position.ReadValue();
+            if(!new Rect(0,0,Screen.width,Screen.height).Contains(pos))return true;
             var layout = new HudLayout(Screen.width, Screen.height);
             if (IsMobile && pos.x < Screen.width * .48f && pos.y < Screen.height * .80f) return true;
             return layout.OverHud(layout.FromScreen(pos), IsMobile);
         }
 
-        Vector3 MousePoint()
+        bool TryMousePoint(out Vector3 point)
         {
-            Ray ray=WorldCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-            return new Plane(Vector3.up,Vector3.zero).Raycast(ray,out float t)?ray.GetPoint(t):Player.position+facing*6;
+            point=default;
+            if(Mouse.current==null||PointerOverHud()||pointerCapturedByUi)return false;
+            return TryWorldPoint(WorldCamera.ScreenPointToRay(Mouse.current.position.ReadValue()),out point);
+        }
+        bool TryWorldPoint(Ray ray,out Vector3 point)
+        {
+            point=default;
+            if(!Physics.Raycast(ray,out RaycastHit hit,WorldCamera.farClipPlane,pointerMask,QueryTriggerInteraction.Ignore))return false;
+            // Nearest solid collider wins. Never fall through a blocker to the ground behind it.
+            if(hit.collider.gameObject.layer!=GroundPointerLayer)return false;
+            point=hit.point;point.y=0;
+            return IsWalkable(point);
         }
         public bool IsWalkable(Vector3 p)
         {

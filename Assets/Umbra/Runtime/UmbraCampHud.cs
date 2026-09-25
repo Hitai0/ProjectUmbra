@@ -51,6 +51,7 @@ namespace Umbra
             if(Button(new(268,774,150,44),Game.Muted?"SOUND: OFF":"SOUND: ON"))Game.ToggleSound();
             if(Button(new(435,774,180,44),Game.SoftFocus?"SOFT FOCUS: ON":"SOFT FOCUS: OFF"))Game.ToggleFocus();
             if(Button(new(630,774,210,44),Game.IsMobile?"INPUT: MOBILE TOUCH":"INPUT: DESKTOP"))Game.ToggleMobileInput();
+            if(Button(new(851,774,110,44),"SPEED: "+Game.GameSpeedLabel))Game.CycleGameSpeed();
             if(Button(new(979,772,541,58),"BEGIN EXPEDITION   /   UP TO 15 MINUTES",true))Game.StartRun();
             Label(84,850,"v"+UmbraPrototype.Version+"  /  SINGLE PLAYER  /  PROGRESS SAVED ON THIS DEVICE",small,muted,950);
             Label(982,850,"Keep earned XP and collected amber on defeat. Boons reset.",small,cream,560);

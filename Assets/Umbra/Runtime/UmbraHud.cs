@@ -112,17 +112,20 @@ namespace Umbra
         void OnGUI()
         {
             if(Game==null||!Game.Ready)return;Styles();
+            var overlay=Game.TopOverlay;
+            bool previousEnabled=GUI.enabled;
+            int previousDepth=GUI.depth;
+            GUI.depth=-100; // IMGUI HUD is above world labels/other default-depth GUI.
             Game.DrawWorldLabels(damage);
+            GUI.enabled=previousEnabled&&overlay==UmbraPrototype.HudOverlay.None;
             layout = new HudLayout(Screen.width, Screen.height);
             Matrix4x4 previousMatrix = GUI.matrix;
             Anchor(.5f, .5f);
             if(Game.Phase!=RunPhase.Running)
             {
                 if(Game.Phase==RunPhase.Camp)DrawCamp();else DrawResults();
-                if(Game.StatsPanel)DrawStats();
-                if(Game.RunePanel)DrawRunes();
-                if(Game.HelpPanel)DrawGuide();
-                GUI.matrix=previousMatrix;return;
+                GUI.enabled=previousEnabled;DrawOverlay(overlay);
+                GUI.matrix=previousMatrix;GUI.depth=previousDepth;GUI.enabled=previousEnabled;return;
             }
             Anchor(0, 0);
             Panel(new(26,26,322,113));
@@ -143,7 +146,7 @@ namespace Umbra
             Label(640,25,"P R O J E C T   U M B R A",heading,cream,450);
             Label(686,46,Game.MapName,small,muted,400);
             int mins=(int)(Game.RunTimer/60f), secs=(int)(Game.RunTimer%60f);
-            Label(720,67,string.Format("{0:00}:{1:00} / 15:00", mins, secs),number,mint,200);
+            Label(720,67,string.Format("{0:00}:{1:00} / 15:00  {2}", mins, secs, Game.GameSpeedLabel),number,mint,240);
 
             Anchor(1, 0);
             Panel(new(1015,26,115,52));
@@ -215,22 +218,34 @@ namespace Umbra
             Label(28,880,"PRE-ALPHA  "+UmbraPrototype.Version+"   /   ROGUELITE HORDE SURVIVAL",small,muted,700);
 
             Anchor(.5f, .5f);
-            if(Game.RunePanel)DrawRunes();
-            if(Game.HelpPanel)DrawGuide();
-            if(Game.StatsPanel)DrawStats();
-            if(Game.Drafting)DrawDraft();
-            if(Game.Paused)
+            GUI.enabled=previousEnabled;DrawOverlay(overlay);
+            GUI.matrix=previousMatrix;GUI.depth=previousDepth;GUI.enabled=previousEnabled;
+        }
+        void DrawOverlay(UmbraPrototype.HudOverlay overlay)
+        {
+            switch(overlay)
             {
+                case UmbraPrototype.HudOverlay.Pause: DrawPause();break;
+                case UmbraPrototype.HudOverlay.Draft: DrawDraft();break;
+                case UmbraPrototype.HudOverlay.Stats: DrawStats();break;
+                case UmbraPrototype.HudOverlay.Help: DrawGuide();break;
+                case UmbraPrototype.HudOverlay.Runes: DrawRunes();break;
+            }
+            // The entire backdrop owns pointer events, including clicks outside the panel.
+            if(overlay!=UmbraPrototype.HudOverlay.None && (Event.current.type==EventType.MouseDown||
+                Event.current.type==EventType.MouseUp||Event.current.type==EventType.ScrollWheel))Event.current.Use();
+        }
+        void DrawPause()
+        {
                 Box(Backdrop,new(0,0,0,.5f));Panel(new(560,260,480,410));
                 Label(610,310,"A MOMENT OF STILLNESS",number);
                 Label(610,355,"The grove can wait.",text,muted);
                 if(Button(new(610,395,380,40),"RETURN TO THE GROVE"))Game.TogglePause();
                 if(Button(new(610,445,185,36),Game.Muted?"SOUND: OFF":"SOUND: ON"))Game.ToggleSound();
                 if(Button(new(805,445,185,36),Game.SoftFocus?"SOFT FOCUS: ON":"SOFT FOCUS: OFF"))Game.ToggleFocus();
-                if(Button(new(610,490,380,36),Game.IsMobile?"CONTROLS: MOBILE TOUCH":"CONTROLS: DESKTOP"))Game.ToggleMobileInput();
+                if(Button(new(610,490,240,36),Game.IsMobile?"CONTROLS: MOBILE TOUCH":"CONTROLS: DESKTOP"))Game.ToggleMobileInput();
+                if(Button(new(860,490,130,36),"SPEED: "+Game.GameSpeedLabel))Game.CycleGameSpeed();
                 if(Button(new(610,535,380,40),"END RUN & BANK COLLECTED REWARDS"))Game.FinishRun(false,"Returned safely to camp");
-            }
-            GUI.matrix=previousMatrix;
         }
         void Skill(float x,string key,string name,float remaining,float cooldown,System.Action action)
         {
@@ -429,7 +444,7 @@ namespace Umbra
                 Box(new Rect(x - 2, y - 2, cardWidth + 4, cardHeight + 4), rarityColor * (isHovered ? 0.95f : 0.70f));
                 Box(cardRect, new Color(.055f, .085f, .07f, .97f));
                 Box(new Rect(x + 5, y + 5, cardWidth - 10, 1), rarityColor * 0.4f);
-                if (GUI.Button(cardRect, GUIContent.none, GUIStyle.none)) Game.ApplyPerk(perk);
+                if (GUI.Button(cardRect, GUIContent.none, GUIStyle.none)) {Game.ApplyPerk(perk);return;}
 
                 Label(x + 20, y + 20, perk.Category + "  •  " + perk.Rarity, small, rarityColor, cardWidth - 40);
                 var nameStyle = new GUIStyle(heading) { fontSize = 18, fontStyle = FontStyle.Bold };
@@ -442,7 +457,7 @@ namespace Umbra
                 string btnLabel = Game.IsMobile ? "ACCEPT BOON" : "[" + (i + 1) + "] ACCEPT BOON";
                 if (Button(new Rect(x + 25, y + cardHeight - 65, cardWidth - 50, 44), btnLabel, true))
                 {
-                    Game.ApplyPerk(perk);
+                    Game.ApplyPerk(perk);return;
                 }
             }
         }

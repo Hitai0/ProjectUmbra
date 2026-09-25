@@ -31,6 +31,10 @@ namespace Umbra
         public string MapName => MapNames[SelectedMap];
         public string BossName => BossNames[SelectedMap];
         public string StageName => BossActive ? "FINAL GUARDIAN" : RunTimer >= 600 ? "THE CLIMAX" : RunTimer >= 300 ? "THE SWARM" : "THE AWAKENING";
+        public enum HudOverlay { None, Runes, Help, Stats, Draft, Pause }
+        // A single priority for drawing, input ownership and Escape in every phase.
+        public HudOverlay TopOverlay => Paused ? HudOverlay.Pause : Drafting ? HudOverlay.Draft :
+            StatsPanel ? HudOverlay.Stats : HelpPanel ? HudOverlay.Help : RunePanel ? HudOverlay.Runes : HudOverlay.None;
         public bool IsModal => Drafting || Paused || RunePanel || HelpPanel || StatsPanel;
         bool CanAct => Phase == RunPhase.Running && !IsModal;
         public static readonly string[] MapNames = { "AMBERFALL GROVE", "TWILIGHT MIRE", "ASHFALL RIDGE" };
@@ -50,6 +54,14 @@ namespace Umbra
             * (1 + Rank(CombatRules.PerkKind.BattleFocus) * .08f)
             * (Class == HeroClass.Mage ? 1.25f + (INT - 1) * .01f : Class == HeroClass.Swordsman ? 1.4f : 1f));
         public bool Muted { get; private set; }
+        int gameSpeedIndex;
+        public float GameSpeed => gameSpeedIndex==1?1.5f:gameSpeedIndex==2?2f:1f;
+        public string GameSpeedLabel => GameSpeed.ToString("0.#",System.Globalization.CultureInfo.InvariantCulture)+"x";
+        public void CycleGameSpeed()
+        {
+            gameSpeedIndex=(gameSpeedIndex+1)%3;
+            SyncPause();SaveProfile();
+        }
         public bool SoftFocus { get; private set; } = true;
         readonly Dictionary<CombatRules.PerkKind,int> perkRanks = new();
         readonly List<Hazard> hazards = new();
@@ -75,6 +87,7 @@ namespace Umbra
             Class=(HeroClass)Mathf.Clamp(PlayerPrefs.GetInt("Umbra.Class",0),0,3);
             if(!ClassesUnlocked)Class=HeroClass.Novice;
             SupplyRank=Mathf.Clamp(PlayerPrefs.GetInt("Umbra.SupplyRank",0),0,5);
+            gameSpeedIndex=Mathf.Clamp(PlayerPrefs.GetInt("Umbra.GameSpeed",0),0,2);
             Muted=PlayerPrefs.GetInt("Umbra.Muted",0)!=0;
             SoftFocus=PlayerPrefs.GetInt("Umbra.SoftFocus",1)!=0;
             campRune=Rune;
@@ -84,6 +97,7 @@ namespace Umbra
             PlayerPrefs.SetInt("Umbra.ClearedMaps",ClearedMaps);
             PlayerPrefs.SetInt("Umbra.Class",(int)Class);
             PlayerPrefs.SetInt("Umbra.SupplyRank",SupplyRank);
+            PlayerPrefs.SetInt("Umbra.GameSpeed",gameSpeedIndex);
             PlayerPrefs.SetInt("Umbra.Muted",Muted?1:0);
             PlayerPrefs.SetInt("Umbra.SoftFocus",SoftFocus?1:0);
             PlayerPrefs.SetInt("Umbra.SaveVersion",2);
@@ -104,14 +118,18 @@ namespace Umbra
         public void ToggleFocus(){SoftFocus=!SoftFocus;if(dof!=null)dof.active=SoftFocus;SaveProfile();}
         public void TogglePause()
         {
-            if(Phase!=RunPhase.Running)return;
-            if(HelpPanel)HelpPanel=false;
-            else if(StatsPanel)StatsPanel=false;
-            else if(RunePanel)RunePanel=false;
-            else if(!Drafting)Paused=!Paused;
+            switch(TopOverlay)
+            {
+                case HudOverlay.Pause: Paused=false;break;
+                case HudOverlay.Draft: return;
+                case HudOverlay.Stats: StatsPanel=false;break;
+                case HudOverlay.Help: HelpPanel=false;break;
+                case HudOverlay.Runes: RunePanel=false;break;
+                default: if(Phase==RunPhase.Running)Paused=true;break;
+            }
             SyncPause();
         }
-        void SyncPause(){Time.timeScale=Phase==RunPhase.Running&&!IsModal?1:0;}
+        void SyncPause(){Time.timeScale=Phase==RunPhase.Running&&!IsModal?GameSpeed:0;}
         void OnApplicationFocus(bool focus){}
 
         public void EnterCamp()

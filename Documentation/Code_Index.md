@@ -81,7 +81,9 @@
 - `LateUpdate()`: Camera follow and audio listener alignment.
 - `UpdateMobileInput()`: Handles multi-touch (`Touchscreen.current.touches`), drag fallback, analog clamping (75px), and touch action triggers.
 - `ToggleMobileInput()`: Switches between Desktop and Mobile Touch input modes.
-- `PointerOverHud() -> bool`: Returns true if mouse/finger is touching any HUD element (prevents unintended tap-to-walk).
+- `PointerOverHud() -> bool`: Blocks world pointer actions for menus, HUD bounds and pointers outside the screen. Mouse presses begun over UI remain captured until release.
+- `TryMousePoint` / `TryWorldPoint`: Nearest-hit Physics raycast; accepts only walkable `UmbraGround` (8). Solid colliders block; UI (5), Ignore Raycast (2) and triggers are excluded. No plane fallback.
+- `TopOverlay`: Shared priority Pause > Draft > Stats > Help > Runes > base screen; only the top overlay receives input. `TogglePause` closes the same top layer.
 - `MovePlayer(Vector3 delta)`: Moves player transform while obeying `IsWalkable` boundaries.
 - `IsWalkable(Vector3 p) -> bool`: Checks the 160 x 160m open field bounds and the smaller guardian arena while a boss is active.
 - `TryAttack(Vector3 point) -> bool`: Fires primary weapon (or slashes for Swordsman) towards target point.
@@ -121,6 +123,7 @@
 - `RerollDraft()`: Rerolls active draft cards if `Rerolls > 0`.
 - `SelectMap(int map)` / `SelectClass(HeroClass kind)`: Switches active route or hero class in camp.
 - `BuySupplies()`: Spends collected amber at camp to increase max HP rank.
+- `CycleGameSpeed()` / `GameSpeed` / `GameSpeedLabel`: Cycle and persist 1x/1.5x/2x; `SyncPause` applies the selected speed only during unobstructed gameplay.
 - `ToggleSound()` / `ToggleFocus()` / `TogglePause()`: Player settings toggles.
 - `UpdateRunDirector(float dt)`: Controls monster wave pacing, elites, and triggers the boss at 14:00 (840s).
 - `InSpawnView` / `TrySpawnPosition`: Camera-aware offscreen placement, ground bounds, player clearance and actor spacing.
@@ -143,7 +146,7 @@
 - `Circle(...)` / `CircleRing(...)`: Draws soft antialiased circles and ring borders for touch UI.
 
 #### HUD Views & Menus
-- `OnGUI()`: Main GUI dispatcher. Computes proportional scale with screen-edge anchors and centered menus and routes to sub-views.
+- `OnGUI()`: IMGUI dispatcher at depth -100. Disables base-screen controls while an overlay is open; `DrawOverlay` draws only the top modal and consumes backdrop pointer events. Computes proportional scale with screen-edge anchors and centered menus and routes to sub-views.
 - `DrawMobileCombatHud()`: Renders floating virtual analog joystick (bottom-left) and thumb-arc action buttons (DODGE, NOVA, MEND, AIM) with cooldown sweeps.
 - `Skill(...)`: Renders desktop bottom ability bar (LMB, Q, Space, E).
 - `DrawDraft()`: Renders the Level-Up Boon 3-card draft screen with `EaseOutBack` entrance animation, rarity colors, and full-card click/touch detection.

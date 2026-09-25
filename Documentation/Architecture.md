@@ -38,3 +38,17 @@ Menus pause simulation and the expedition clock. Focus loss does not pause, supp
 ## Static deployment
 
 `Builds/Web` contains the Unity WebGL output and branded loader. Host as static files with correct WASM MIME handling. `Tools/serve_web.py` provides localhost testing. Vercel project metadata and credentials stay outside source control. Build output is uploaded as a release artifact, not committed to Git.
+
+## Pointer layers and UI priority
+
+The runtime UI is IMGUI, not Canvas UI: sorting layers do not determine its input priority. `UmbraHud` uses GUI depth -100, draws the base screen with controls disabled while a modal is open, and draws only the highest-priority modal. The shared priority is **Pause > Draft > Stats > Help > Runes > Camp/Results/combat HUD > world**. Escape follows that same priority; drafting cannot be dismissed. Modal backdrops consume pointer events. A mouse press begun over UI remains captured until both mouse buttons are released, and mobile movement is cleared while a modal is open.
+
+| Physics layer | Purpose |
+|---|---|
+| 8 / UmbraGround | Retained floor collider; only accepted world-click target, additionally checked against playable bounds |
+| 9 / UmbraPointerBlocker | Retained tree-trunk colliders; nearest hit blocks clicks through to ground |
+| 0 / Default and other included solid layers | Block clicks when their collider is the nearest hit |
+| 2 / Ignore Raycast | Generated decorative primitives/effects; excluded from pointer raycasts |
+| 5 / UI | Excluded from physics picking; existing IMGUI hit testing owns UI input |
+
+`pointerMask` is serialized on UmbraPrototype and excludes UI and Ignore Raycast by default. Trigger colliders are ignored. `TryWorldPoint` uses the nearest Physics.Raycast result; it has no infinite-plane or invented-target fallback. These changes affect mouse picking, not projectile collision or world navigation. Additional UI implementations must participate in pointer blocking explicitly.

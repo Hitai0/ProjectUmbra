@@ -87,3 +87,7 @@ In v0.2.4, Mobile Device Detection & Touch Input Experience:
 - Full card tap selection in boon drafts for seamless mobile drafting.
 
 Next art/content pass: bespoke class sprites, richer music/SFX, additional enemy attack patterns, persistent card collection/socket UI, stagger, and more differentiated boss movement. These are not represented as implemented features. This release retains the existing procedural forest instead of claiming production Octopath-quality assets.
+
+## Game speed
+
+Camp and Pause provide a cycling SPEED button: 1x, 1.5x, 2x. The selection is saved locally. The combat HUD timer shows the selected speed. Game speed scales simulation time, including movement, attacks, cooldowns, spawns, hazards and the expedition clock; a 15-minute run takes approximately 7.5 real minutes at 2x, excluding pauses. Camp, results and every modal still pause simulation. Closing a modal restores the selected speed. UI animations using unscaled time and sound pitch are unchanged.

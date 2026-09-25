@@ -44,7 +44,44 @@ namespace Umbra
                 BaseLevel=3;StatPoints=6;Check(TryAddStat(CombatRules.StatKind.VIT)&&VIT==2&&StatPoints==5,"camp allocation");
                 ResetStats();Check(VIT==1&&StatPoints==6,"free respec refund");
                 bool initMobile=IsMobile;ToggleMobileInput();Check(IsMobile!=initMobile,"mobile toggle switches state");ToggleMobileInput();Check(IsMobile==initMobile,"mobile toggle restores state");
+                RunePanel=HelpPanel=StatsPanel=Drafting=Paused=true;
+                Check(TopOverlay==HudOverlay.Pause,"pause owns overlay input");
+                TogglePause();Check(TopOverlay==HudOverlay.Draft,"escape closes only top overlay");
+                TogglePause();Check(Drafting&&StatsPanel,"draft cannot dismiss lower panels");
+                Drafting=false;Check(TopOverlay==HudOverlay.Stats,"stats above help and runes");
+                TogglePause();Check(TopOverlay==HudOverlay.Help,"help follows stats");
+                TogglePause();Check(TopOverlay==HudOverlay.Runes,"runes follow help");
+                TogglePause();Check(TopOverlay==HudOverlay.None,"camp overlays close consistently");
+                Check(LayerMask.LayerToName(GroundPointerLayer)=="UmbraGround"&&LayerMask.LayerToName(BlockerPointerLayer)=="UmbraPointerBlocker","pointer layers configured");
+                var pointerRay=new Ray(new Vector3(0,10,-2),Vector3.down);
+                Physics.SyncTransforms();
+                Check(TryWorldPoint(pointerRay,out var groundPoint)&&Mathf.Abs(groundPoint.z+2)<.01f,"pointer hits actual ground collider");
+                var blocker=new GameObject("Pointer test blocker");var blockerCollider=blocker.AddComponent<BoxCollider>();
+                try
+                {
+                    blocker.transform.position=new(0,1,-2);blocker.layer=BlockerPointerLayer;Physics.SyncTransforms();
+                    Check(!TryWorldPoint(pointerRay,out _),"solid blocker stops click before ground");
+                    blocker.layer=0;Check(!TryWorldPoint(pointerRay,out _),"default layer collider also blocks click");
+                    blocker.layer=2;Check(TryWorldPoint(pointerRay,out _),"ignore raycast layer is excluded");
+                    blocker.layer=5;Check(TryWorldPoint(pointerRay,out _),"UI physics layer is excluded");
+                    blocker.layer=BlockerPointerLayer;blockerCollider.isTrigger=true;
+                    Check(TryWorldPoint(pointerRay,out _),"triggers do not steal ground clicks");
+                    Check(!TryWorldPoint(new Ray(new Vector3(90,10,0),Vector3.down),out _),"ground outside playable bounds rejected");
+                    Check(!TryWorldPoint(new Ray(new Vector3(0,10,0),Vector3.up),out _),"no hit does not invent a target");
+                }
+                finally{blockerCollider.enabled=false;Destroy(blocker);}
                 StartRun();Check(Drafting&&Time.timeScale==0&&RunTimer==0,"opening draft freezes timer");
+                for(int speed=0;speed<3;speed++)
+                {
+                    gameSpeedIndex=speed;SyncPause();Check(Time.timeScale==0,"draft pauses speed "+GameSpeedLabel);
+                    Drafting=false;SyncPause();Check(Mathf.Approximately(Time.timeScale,GameSpeed),"running applies speed "+GameSpeedLabel);
+                    Paused=true;SyncPause();Check(Time.timeScale==0,"pause overrides speed "+GameSpeedLabel);
+                    CycleGameSpeed();Check(Time.timeScale==0,"changing speed while paused stays paused");
+                    Paused=false;SyncPause();Check(Mathf.Approximately(Time.timeScale,GameSpeed),"resume restores selected speed");
+                    StatsPanel=true;SyncPause();Check(Time.timeScale==0,"stats pauses selected speed");
+                    StatsPanel=false;Drafting=true;
+                }
+                gameSpeedIndex=0;SyncPause();
                 var offered=ActiveDraft[0];ApplyPerk(offered);int rank=Rank(offered.Kind);ApplyPerk(offered);
                 Check(Rank(offered.Kind)==rank,"draft cannot be claimed twice");
                 Check(!TryAddStat(CombatRules.StatKind.STR),"stats locked during expedition");
