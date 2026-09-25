@@ -28,9 +28,9 @@ namespace Umbra
         public bool ClassesUnlocked => BaseLevel >= 10 || (ClearedMaps & 1) != 0;
         public bool BossActive => boss != null && boss.hp > 0 && boss.root.gameObject.activeSelf;
         public float BossHealth => BossActive ? (float)boss.hp / boss.maxHp : 0;
-        public string MapName => MapNames[SelectedMap];
-        public string BossName => BossNames[SelectedMap];
-        public string StageName => BossActive ? "FINAL GUARDIAN" : RunTimer >= 600 ? "THE CLIMAX" : RunTimer >= 300 ? "THE SWARM" : "THE AWAKENING";
+        public string MapName => Loc.MapName(SelectedMap);
+        public string BossName => Loc.BossName(SelectedMap);
+        public string StageName => Loc.StageName(BossActive, RunTimer);
         public enum HudOverlay { None, Runes, Help, Stats, Draft, Pause }
         // A single priority for drawing, input ownership and Escape in every phase.
         public HudOverlay TopOverlay => Paused ? HudOverlay.Pause : Drafting ? HudOverlay.Draft :
@@ -63,6 +63,14 @@ namespace Umbra
             gameSpeedIndex = (gameSpeedIndex + 1) % AvailableGameSpeeds.Length;
             SyncPause(); SaveProfile();
         }
+        public GameLanguage Language { get; private set; }
+        public string LanguageLabel => Language == GameLanguage.English ? "LANG: EN" : "ภาษา: TH";
+        public void ToggleLanguage()
+        {
+            Language = Language == GameLanguage.English ? GameLanguage.Thai : GameLanguage.English;
+            Loc.Current = Language;
+            SaveProfile();
+        }
         public bool SoftFocus { get; private set; } = true;
         readonly Dictionary<CombatRules.PerkKind,int> perkRanks = new();
         readonly List<Hazard> hazards = new();
@@ -91,6 +99,8 @@ namespace Umbra
             gameSpeedIndex=Mathf.Clamp(PlayerPrefs.GetInt("Umbra.GameSpeed",0),0,AvailableGameSpeeds.Length-1);
             Muted=PlayerPrefs.GetInt("Umbra.Muted",0)!=0;
             SoftFocus=PlayerPrefs.GetInt("Umbra.SoftFocus",1)!=0;
+            Language=(GameLanguage)Mathf.Clamp(PlayerPrefs.GetInt("Umbra.Language",0),0,1);
+            Loc.Current=Language;
             campRune=Rune;
         }
         void SaveCampaignProfile()
@@ -99,6 +109,7 @@ namespace Umbra
             PlayerPrefs.SetInt("Umbra.Class",(int)Class);
             PlayerPrefs.SetInt("Umbra.SupplyRank",SupplyRank);
             PlayerPrefs.SetInt("Umbra.GameSpeed",gameSpeedIndex);
+            PlayerPrefs.SetInt("Umbra.Language",(int)Language);
             PlayerPrefs.SetInt("Umbra.Muted",Muted?1:0);
             PlayerPrefs.SetInt("Umbra.SoftFocus",SoftFocus?1:0);
             PlayerPrefs.SetInt("Umbra.SaveVersion",2);
@@ -154,7 +165,7 @@ namespace Umbra
             attackAt=volleyAt=dashAt=healAt=0;dashUntil=0;hitGraceUntil=0;dashImmuneUntil=0;spawnImmuneUntil=Time.time+2;nextHordeSpawn=Time.time+.5f;hordeCursor=0;
             Drafting=Paused=RunePanel=StatsPanel=HelpPanel=false;walkingTo=false;
             Player.position=new(0,0,-2);Phase=RunPhase.Running;ApplyMapPalette();
-            TriggerLevelUp();Notify("Choose your first boon. Your 15-minute expedition begins.");
+            TriggerLevelUp();Notify(Loc.T("Choose your first boon. Your 15-minute expedition begins.","เลือกรับพลังแรก การสำรวจ 15 นาทีเริ่มต้นขึ้นแล้ว"));
         }
         void ClearCombat()
         {
@@ -295,7 +306,7 @@ namespace Umbra
             if(RunTimer>=CombatRules.BossTime&&!bossSpawned)SpawnBoss();
             else if(RunTimer>=CombatRules.ChampionArrival&&!miniSpawned)
             {
-                var e=enemies[enemies.Count-1];if(TrySpawnPosition(out Vector3 p)){miniSpawned=true;SpawnEnemy(e,p,900+SelectedMap*350);e.visual.localScale=Vector3.one*2;ConfigureContactProfile(e,true);Notify("CHAMPION AWAKENED  /  Keep your distance");}
+                var e=enemies[enemies.Count-1];if(TrySpawnPosition(out Vector3 p)){miniSpawned=true;SpawnEnemy(e,p,900+SelectedMap*350);e.visual.localScale=Vector3.one*2;ConfigureContactProfile(e,true);Notify(Loc.T("CHAMPION AWAKENED  /  Keep your distance","แชมเปี้ยนตื่นขึ้นแล้ว  /  รักษาระยะห่างไว้"));}
             }
         }
         void SpawnBoss()
@@ -310,7 +321,7 @@ namespace Umbra
             arenaBoundary=boundary.GetComponent<LineRenderer>();arenaBoundary.sharedMaterial=Mat("arena amber",new(1.8f,.6f,.15f),true);arenaBoundary.widthMultiplier=.13f;arenaBoundary.positionCount=5;
             arenaBoundary.SetPositions(new[]{new Vector3(-4.8f,.1f,-7),new Vector3(4.8f,.1f,-7),new Vector3(4.8f,.1f,7),new Vector3(-4.8f,.1f,7),new Vector3(-4.8f,.1f,-7)});
             Health=Mathf.Min(MaxHealth,Health+Mathf.RoundToInt(MaxHealth*.25f));
-            Notify(BossName+"  /  60 seconds. Dodge the warning rings.");PlayCue(1);
+            Notify(BossName+"  /  "+Loc.T("60 seconds. Dodge the warning rings.","เหลือเวลา 60 วินาที หลบวงแหวนเตือนภัย"));PlayCue(1);
         }
         void UpdateBoss(Enemy e,float dt)
         {

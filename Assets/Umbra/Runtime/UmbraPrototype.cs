@@ -134,7 +134,7 @@ namespace Umbra
                 case CombatRules.StatKind.LUK: LUK++; break;
             }
             SaveProfile();
-            Notify(stat + " increased to " + GetStat(stat));
+            Notify(Loc.StatName(stat) + Loc.T(" increased to ", " เพิ่มขึ้นเป็น ") + GetStat(stat));
             return true;
         }
 
@@ -147,7 +147,7 @@ namespace Umbra
             STR = AGI = VIT = INT = DEX = LUK = 1;
             Health = Mathf.Min(MaxHealth, Health);
             SaveProfile();
-            Notify("Stats reset! " + StatPoints + " points refunded.");
+            Notify(Loc.T("Stats reset! ", "รีเซ็ตสเตตัสแล้ว! ได้รับคืน ") + StatPoints + Loc.T(" points refunded.", " แต้ม"));
         }
 
         public int GetStat(CombatRules.StatKind stat) => stat switch
@@ -214,7 +214,7 @@ namespace Umbra
             IsMobile = !IsMobile;
             PlayerPrefs.SetInt("Umbra.MobileUI", IsMobile ? 1 : 0);
             PlayerPrefs.Save();
-            Notify(IsMobile ? "Mobile Touch Controls Enabled" : "Desktop Keyboard Controls Enabled");
+            Notify(IsMobile ? Loc.T("Mobile Touch Controls Enabled", "เปิดใช้งานการควบคุมแบบสัมผัส") : Loc.T("Desktop Keyboard Controls Enabled", "เปิดใช้งานการควบคุมด้วยคีย์บอร์ด"));
         }
 
         Material Mat(string key, Color color, bool unlit = false)
@@ -697,7 +697,7 @@ namespace Umbra
             if (aimPressed)
             {
                 AutoAim = !AutoAim;
-                Notify(AutoAim ? "AUTO-AIM: ON" : "AUTO-AIM: OFF");
+                Notify(AutoAim ? Loc.T("AUTO-AIM: ON", "เล็งอัตโนมัติ: เปิด") : Loc.T("AUTO-AIM: OFF", "เล็งอัตโนมัติ: ปิด"));
             }
         }
 
@@ -840,7 +840,7 @@ namespace Umbra
             Vector3 z=p+new Vector3(0,0,delta.z); if(IsWalkable(z))p=z;
             Player.position=p;
         }
-        public void SetRune(RuneKind rune){if(Phase!=RunPhase.Camp)return;Rune=rune;SaveProfile();Notify(CombatRules.RuneName(rune)+" equipped");}
+        public void SetRune(RuneKind rune){if(Phase!=RunPhase.Camp)return;Rune=rune;SaveProfile();Notify(Loc.RuneName(rune)+" "+Loc.T("equipped","ติดตั้งแล้ว"));}
         public bool TryAttack(Vector3 point)
         {
             if(!CanAct||Time.time<attackAt)return false;
@@ -1105,7 +1105,7 @@ namespace Umbra
                 case CombatRules.PerkKind.WindNovaPulse:HasNovaPulse=true;nextNovaPulse=Time.time+10;break;
             }
             PlayCue(0);
-            Notify(perk.Title+" acquired");Drafting=false;ActiveDraft.Clear();
+            Notify(Loc.PerkTitle(perk.Kind)+" "+Loc.T("acquired","ได้รับแล้ว"));Drafting=false;ActiveDraft.Clear();
             if(pendingDrafts>0){pendingDrafts--;TriggerLevelUp();}
             SyncPause();
         }

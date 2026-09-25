@@ -82,3 +82,18 @@ Scope limits:
 
 Unity compilation and smoke suite passed (276 assertions, +12 from previous 264). Added speeds 3x and 4x to `AvailableGameSpeeds` (`1x, 1.5x, 2x, 3x, 4x`). Verified simulation scaling, draft/modal/pause overrides, cycling while paused, and resume restoration across all 5 speed settings.
 
+## Dual-Language Localization (English & Thai) - 2026-09-25
+
+Unity compilation and Play Mode smoke suite passed (280 assertions, +4 new checks).
+- **Automated Validation**:
+  - `language toggle switches to thai`: Verifies `ToggleLanguage()` alters state to `GameLanguage.Thai` and updates `Loc.Current`.
+  - `thai localization mappings`: Validates sample Thai dictionary returns (`Novice -> โนวิซ`, `Pierce -> วายุทะลวง`, `Map 0 -> ป่าแอมเบอร์ฟอล`).
+  - `language toggle restores english`: Verifies cycling back restores `GameLanguage.English` and `Loc.Current`.
+  - `english localization mappings`: Validates exact English identity preservation (`Novice -> NOVICE`, `Pierce -> PIERCING WIND`, `Map 0 -> AMBERFALL GROVE`).
+- **Typography & Font**: Dynamic Windows Tahoma font imported into `Assets/Umbra/Resources/Umbra/Fonts/tahoma.ttf` with runtime fallback to ensure no broken glyphs or tofu when rendering Thai tone marks and consonants in IMGUI.
+- **Coverage Verified**:
+  - Camp header, class picking, map selection, stats allocation, supplies, and expedition results.
+  - In-game combat HUD: Wanderer status bar, minimap region & objectives, desktop & mobile skill buttons, auto-aim toggle, and notifications.
+  - Modals: Pause menu (with new Language switch button), Draft boon selection (cards, categories, rarities, titles, descriptions), Support Runes overview, Character Status panel (with 6 attribute formulas), and Help guide.
+  - Player preference persistence in `PlayerPrefs` (`"Umbra.Language"`).
+

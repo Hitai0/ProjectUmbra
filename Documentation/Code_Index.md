@@ -19,7 +19,8 @@
 | [`UmbraCampaign.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaign.cs) | `public partial class UmbraPrototype` (`Umbra`) | Run lifecycle, draft generation, guardian bosses, swept projectile/hazard offers, settlement. | ~440 |
 | [`UmbraHud.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraHud.cs) | `public sealed partial class UmbraHud : MonoBehaviour` (`Umbra`) | In-game IMGUI HUD, virtual analog joystick, touch action buttons, boon draft cards, stats/runes/armor. | ~495 |
 | [`UmbraCampHud.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampHud.cs) | `public sealed partial class UmbraHud` (`Umbra`) | Camp screen UI, stat allocations, map/class selection, expedition results screen. | ~78 |
-| [`UmbraCampaignTests.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaignTests.cs) | `public partial class UmbraPrototype` (`Umbra`) | Automated smoke suite (264 assertions) verifying formulas, transitions, mobile controls, and combat rules. | ~195 |
+| [`UmbraLocalization.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraLocalization.cs) | `public static class Loc` (`Umbra`) | Dual-language localization dictionary (English & Thai) for classes, maps, bosses, runes, perks, stats, and UI text. | ~200 |
+| [`UmbraCampaignTests.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaignTests.cs) | `public partial class UmbraPrototype` (`Umbra`) | Automated smoke suite (280 assertions) verifying formulas, transitions, mobile controls, combat rules, and localization. | ~200 |
 | [`UmbraDamageTests.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraDamageTests.cs) | `public partial class UmbraPrototype` (`Umbra`) | Unit & acceptance tests for pure damage formula, contact geometry, protection timers, 21-candidate frame resolution. | ~125 |
 | [`UmbraProjectSetup.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Editor/UmbraProjectSetup.cs) | `public static class UmbraProjectSetup` (`Umbra.Editor`) | Unity Editor automation, command watcher (`.umbra-command`), URP setup, WebGL builds. | ~234 |
 
@@ -216,6 +217,33 @@
   - Panel 3: Expedition map selection (Amberfall Grove, Twilight Mire, Ashfall Ridge) and "BEGIN EXPEDITION" button.
   - Bottom bar: Sound toggle, Soft focus toggle, Mobile Input switch (`INPUT: MOBILE TOUCH / DESKTOP`).
 - `DrawResults()`: Expedition summary screen showing time survived, kills, banked amber, earned XP, and "RETURN TO CAMP" button.
+
+---
+
+### 📄 `UmbraLocalization.cs` (Localization Dictionary)
+**Namespace**: `Umbra` | **Class**: `public static class Loc`
+
+#### Types & Enums
+- `enum GameLanguage { English = 0, Thai = 1 }`: Supported language modes.
+
+#### Methods & Properties
+- `Current`: Static active language property (`GameLanguage.English` or `GameLanguage.Thai`).
+- `T(string en, string th) -> string`: Returns localized string based on `Current`.
+- `ClassName(HeroClass heroClass) -> string`: Localized hero class display names.
+- `ClassDescription(int index) -> string`: Localized class descriptions.
+- `MapName(int index) -> string`: Localized map titles.
+- `MapDescription(int index) -> string`: Localized map route descriptions.
+- `BossName(int index) -> string`: Localized guardian boss names.
+- `StageName(bool bossActive, float runTimer) -> string`: Localized encounter phase names.
+- `RuneName(RuneKind rune) -> string`: Localized starting rune names.
+- `RuneDescription(RuneKind rune) -> string`: Localized rune effect descriptions.
+- `PerkTitle(CombatRules.PerkKind kind) -> string`: Localized boon titles.
+- `PerkDescription(CombatRules.PerkKind kind) -> string`: Localized boon effect descriptions.
+- `PerkCategory(string category) -> string`: Localized boon categories.
+- `PerkRarity(string rarity) -> string`: Localized boon rarity tags.
+- `StatName(CombatRules.StatKind s) -> string`: Localized attribute names.
+- `StatDescription(CombatRules.StatKind s, ...) -> string`: Localized attribute mathematical descriptions.
+- `ResultReason(string reason) -> string`: Localized run completion and defeat reasons.
 
 ---
 

@@ -44,6 +44,12 @@ namespace Umbra
                 BaseLevel=3;StatPoints=6;Check(TryAddStat(CombatRules.StatKind.VIT)&&VIT==2&&StatPoints==5,"camp allocation");
                 ResetStats();Check(VIT==1&&StatPoints==6,"free respec refund");
                 bool initMobile=IsMobile;ToggleMobileInput();Check(IsMobile!=initMobile,"mobile toggle switches state");ToggleMobileInput();Check(IsMobile==initMobile,"mobile toggle restores state");
+                var initLang=Language;ToggleLanguage();
+                Check(Language!=initLang&&Loc.Current==Language&&Language==GameLanguage.Thai,"language toggle switches to thai");
+                Check(Loc.ClassName(HeroClass.Novice)=="โนวิซ"&&Loc.RuneName(RuneKind.Pierce)=="วายุทะลวง"&&Loc.MapName(0)=="ป่าแอมเบอร์ฟอล","thai localization mappings");
+                ToggleLanguage();
+                Check(Language==initLang&&Loc.Current==Language&&Language==GameLanguage.English,"language toggle restores english");
+                Check(Loc.ClassName(HeroClass.Novice)=="NOVICE"&&Loc.RuneName(RuneKind.Pierce)=="PIERCING WIND"&&Loc.MapName(0)=="AMBERFALL GROVE","english localization mappings");
                 RunePanel=HelpPanel=StatsPanel=Drafting=Paused=true;
                 Check(TopOverlay==HudOverlay.Pause,"pause owns overlay input");
                 TogglePause();Check(TopOverlay==HudOverlay.Draft,"escape closes only top overlay");

@@ -106,3 +106,19 @@ Next art/content pass: bespoke class sprites, richer music/SFX, additional enemy
 ## Game speed
 
 Camp and Pause provide a cycling SPEED button: 1x, 1.5x, 2x, 3x, 4x. The selection is saved locally. The combat HUD timer shows the selected speed. Game speed scales simulation time, including movement, attacks, cooldowns, spawns, hazards and the expedition clock; a 15-minute run takes approximately 7.5 real minutes at 2x, 5 minutes at 3x, or 3.75 minutes at 4x, excluding pauses. Camp, results and every modal still pause simulation. Closing a modal restores the selected speed. UI animations using unscaled time and sound pitch are unchanged.
+
+## Dual-Language Localization (English & Thai)
+
+The game provides full bilingual localization supporting **English** and **Thai** (v0.2.6):
+- **Universal Font Support**: Integrated Windows `Tahoma` true-type font (`Assets/Umbra/Resources/Umbra/Fonts/tahoma.ttf`) imported as a dynamic font to support full Unicode Latin and Thai character sets (including upper/lower vowels and tone marks) without rendering boxes or tofu across desktop and WebGL platforms.
+- **Language Toggles**: One-click language switch button accessible both in the Camp header (`LANG: EN` / `ภาษา: TH`) and Pause overlay menu, seamlessly toggling the game language in real time without reloading the scene.
+- **PlayerPrefs Persistence**: The player's language preference is saved under `"Umbra.Language"` (`0 = English`, `1 = Thai`) and automatically restored upon game launch.
+- **Comprehensive Coverage**: Complete localization applied to all game interfaces:
+  - **Camp Screen**: Header, stats allocation, class selection, route cards, supplies shop, and footer.
+  - **Combat HUD**: Hero status bar, minimap region/objective descriptors, speed timer, desktop & mobile skill action buttons, aim toggle, and notifications.
+  - **Mobile Combat HUD**: Analog joystick hints, circular action buttons (Dodge, Nova, Mend, Aim), and Build details.
+  - **Draft Boon Screen**: Title, subtitle, reroll counter button, card categories, rarities, titles, descriptions, and accept buttons.
+  - **Support Runes & Build Overview**: Title, rune names, descriptions, equip toggles, and live stats breakdown.
+  - **Character Status Panel**: Base level/armor summary, stat points banner, free reset button, 6 stat names, and detailed dynamic formulas.
+  - **Help & How to Play**: Full control and objective guide translated into natural Thai gaming terminology.
+  - **Expedition Results Screen**: Victory/defeat titles, completion reasons, summary metrics (time, kills, amber, XP), and camp return button.

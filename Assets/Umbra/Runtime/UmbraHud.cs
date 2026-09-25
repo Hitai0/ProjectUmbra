@@ -46,7 +46,7 @@ namespace Umbra
         void Styles()
         {
             if(text!=null)return;
-            Font font=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font=Resources.Load<Font>("Umbra/Fonts/tahoma")??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text=new GUIStyle{font=font,fontSize=17,normal={textColor=cream}};
             small=new GUIStyle(text){fontSize=12};
             title=new GUIStyle(text){fontSize=32,fontStyle=FontStyle.Bold};
@@ -132,10 +132,10 @@ namespace Umbra
             if(GUI.Button(new Rect(26,26,322,113),GUIContent.none,GUIStyle.none)) Game.StatsPanel=!Game.StatsPanel;
             Box(new(39,39,64,82),new(.15f,.20f,.14f));
             GUI.DrawTexture(new Rect(43,38,56,84),portrait,ScaleMode.ScaleToFit);
-            Label(119,39,"WANDERER",heading);
-            Label(278,39,"Lv. "+Game.Level,heading,gold);
-            if(Game.StatPoints>0) Label(260,59,"+"+Game.StatPoints+" PTS",small,mint);
-            else Label(119,59,Game.Class+"  /  Run Lv. "+Game.RunLevel,small,muted);
+            Label(119,39,Loc.T("WANDERER","ผู้พเนจร"),heading);
+            Label(278,39,Loc.T("Lv. ","เลเวล ")+Game.Level,heading,gold);
+            if(Game.StatPoints>0) Label(260,59,Loc.T("+"+Game.StatPoints+" PTS","+"+Game.StatPoints+" แต้ม"),small,mint);
+            else Label(119,59,Loc.ClassName(Game.Class)+"  /  "+Loc.T("Run Lv. ","เลเวลรอบนี้ ")+Game.RunLevel,small,muted);
             Bar(119,83,210,(float)Game.Health/Game.MaxHealth,new(.70f,.29f,.22f));
             Label(119,96,Game.Health+" / "+Game.MaxHealth+" HP",small);
             Label(243,96,Game.RunExperience+" XP",small,gold);
@@ -150,19 +150,19 @@ namespace Umbra
 
             Anchor(1, 0);
             Panel(new(1015,26,115,52));
-            string statsLabel = Game.StatPoints>0 ? "STATS ["+Game.StatPoints+"]" : "STATS  [C]";
+            string statsLabel = Game.StatPoints>0 ? Loc.T("STATS [","สเตตัส [")+Game.StatPoints+"]" : Loc.T("STATS  [C]","สเตตัส  [C]");
             if(Button(new(1023,36,99,31), statsLabel, Game.StatsPanel || Game.StatPoints>0)) Game.StatsPanel=!Game.StatsPanel;
 
             Panel(new(1140,26,115,52));
-            if(Button(new(1148,36,99,31),Game.AutoAim?"AIM: AUTO":"AIM: MANUAL",Game.AutoAim))Game.AutoAim=!Game.AutoAim;
+            if(Button(new(1148,36,99,31),Game.AutoAim?Loc.T("AIM: AUTO","เล็ง: ออโต้"):Loc.T("AIM: MANUAL","เล็ง: เอง"),Game.AutoAim))Game.AutoAim=!Game.AutoAim;
 
             Panel(new(1265,26,308,52));
-            if(Button(new(1275,36,90,31),"RUNES  [TAB]",Game.RunePanel))Game.RunePanel=!Game.RunePanel;
-            if(Button(new(1373,36,88,31),Game.IsMobile?"TOUCH":"DESKTOP",Game.IsMobile))Game.ToggleMobileInput();
-            if(Button(new(1469,36,94,31),"PAUSE  [ESC]",Game.Paused))Game.TogglePause();
+            if(Button(new(1275,36,90,31),Loc.T("RUNES  [TAB]","รูน  [TAB]"),Game.RunePanel))Game.RunePanel=!Game.RunePanel;
+            if(Button(new(1373,36,88,31),Game.IsMobile?Loc.T("TOUCH","สัมผัส"):Loc.T("DESKTOP","คีย์บอร์ด"),Game.IsMobile))Game.ToggleMobileInput();
+            if(Button(new(1469,36,94,31),Loc.T("PAUSE  [ESC]","พักเกม  [ESC]"),Game.Paused))Game.TogglePause();
 
             Panel(new(1334,97,239,214));
-            Label(1350,110,"THE OPEN MEADOW",heading,gold);
+            Label(1350,110,Loc.T("THE OPEN MEADOW","ทุ่งหญ้ากว้าง"),heading,gold);
             Box(new(1351,143,204,135),new(.12f,.18f,.13f));
             Vector2 MapPoint(Vector3 point) => new Vector2(
                 1355+Mathf.InverseLerp(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize,point.x)*196,
@@ -174,14 +174,14 @@ namespace Umbra
             }
             Vector2 player=MapPoint(Game.Player.position);
             Box(new(player.x-3.5f,player.y-3.5f,7,7),cream);
-            Label(1350,287,"N  /  FIELD 01",small,muted);
-            Label(1472,287,"LOCAL",small,mint);
+            Label(1350,287,Loc.T("N  /  FIELD 01","เหนือ / อาณาเขต 01"),small,muted);
+            Label(1472,287,Loc.T("LOCAL","แผนที่"),small,mint);
             Panel(new(1334,329,239,156));
             Label(1350,344,Game.StageName,heading,gold);
-            Label(1350,374,Game.BossActive?Game.BossName:"Guardian arrives at 14:00",small,cream);
-            Label(1350,400,"Defeated: "+Game.Kills,small,muted);
+            Label(1350,374,Game.BossActive?Game.BossName:Loc.T("Guardian arrives at 14:00","ผู้พิทักษ์มาถึงตอน 14:00"),small,cream);
+            Label(1350,400,Loc.T("Defeated: ","กำจัดแล้ว: ")+Game.Kills,small,muted);
             Bar(1350,425,205,Game.BossActive?Game.BossHealth:Game.RunTimer/840f,Game.BossActive?new Color(.85f,.3f,.2f):mint);
-            Label(1350,446,Game.BossActive?"Defeat it before 15:00":"Dodge amber warning circles",small,gold);
+            Label(1350,446,Game.BossActive?Loc.T("Defeat it before 15:00","กำจัดก่อนหมดเวลา 15:00"):Loc.T("Dodge amber warning circles","หลบวงกลมเตือนสีอำพัน"),small,gold);
 
             Anchor(.5f, 0);
             if(Time.unscaledTime<Game.NoticeUntil)
@@ -194,28 +194,28 @@ namespace Umbra
             {
                 Anchor(0, 1);
                 Panel(new(26,792,304,79));
-                Label(43,803,"THIS EXPEDITION",small,muted);
-                Label(43,824,Game.RunShards.ToString("N0")+"  amber",number,gold);
-                Label(200,835,"Banked at end",small,muted);
+                Label(43,803,Loc.T("THIS EXPEDITION","รอบสำรวจนี้"),small,muted);
+                Label(43,824,Game.RunShards.ToString("N0")+"  "+Loc.T("amber","อำพัน"),number,gold);
+                Label(200,835,Loc.T("Banked at end","เข้าคลังเมื่อจบ"),small,muted);
 
                 Anchor(.5f, 1);
                 Panel(new(447,789,704,83));
-                Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?"Auto-firing at nearest foe.":"Hold LMB to aim and fire."));
-                Skill(598,"Q","WIND NOVA",Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
-                Skill(735,"SPACE","QUICKSTEP",Game.DashRemaining,CombatRules.DashCooldown,()=>Game.TryDash());
-                Skill(872,"E","MEND",Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
-                if(Button(new(1009,802,126,55),"TAB\nBUILD DETAILS"))Game.RunePanel=!Game.RunePanel;
-                Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?"AUTO-AIM ON":"MANUAL AIM"),small,gold);
+                Skill(461,"LMB",Loc.T("SPIRIT ARROW","ศรวิญญาณ"),Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?Loc.T("Auto-firing at nearest foe.","ยิงอัตโนมัติไปยังศัตรูที่ใกล้ที่สุด"):Loc.T("Hold LMB to aim and fire.","คลิกซ้ายค้างเพื่อเล็งและยิง")));
+                Skill(598,"Q",Loc.T("WIND NOVA","ระเบิดวายุ"),Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
+                Skill(735,"SPACE",Loc.T("QUICKSTEP","ก้าวย่างพริบตา"),Game.DashRemaining,CombatRules.DashCooldown,()=>Game.TryDash());
+                Skill(872,"E",Loc.T("MEND","ฟื้นฟู"),Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
+                if(Button(new(1009,802,126,55),Loc.T("TAB\nBUILD DETAILS","TAB\nข้อมูลบิลด์")))Game.RunePanel=!Game.RunePanel;
+                Label(535,759,Loc.T("EQUIPPED","สวมใส่")+"  /  "+Loc.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?Loc.T("AUTO-AIM ON","เล็งอัตโนมัติ"):Loc.T("MANUAL AIM","เล็งเอง")),small,gold);
                 Anchor(1, 1);
-                Label(1254,826,"WASD move   /   RMB travel",small,cream);
-                Label(1254,847,"Scroll zoom   /   H controls",small,muted);
+                Label(1254,826,Loc.T("WASD move   /   RMB travel","WASD เดิน   /   คลิกขวาเคลื่อนที่"),small,cream);
+                Label(1254,847,Loc.T("Scroll zoom   /   H controls","ลูกกลิ้งซูม   /   H คำแนะนำ"),small,muted);
             }
             else
             {
                 DrawMobileCombatHud();
             }
             Anchor(0, 1);
-            Label(28,880,"PRE-ALPHA  "+UmbraPrototype.Version+"   /   ROGUELITE HORDE SURVIVAL",small,muted,700);
+            Label(28,880,Loc.T("PRE-ALPHA  "+UmbraPrototype.Version+"   /   ROGUELITE HORDE SURVIVAL","พรีอัลฟ่า  "+UmbraPrototype.Version+"   /   เอาชีวิตรอดจากฝูงมอนสเตอร์สไตล์ Roguelite"),small,muted,700);
 
             Anchor(.5f, .5f);
             GUI.enabled=previousEnabled;DrawOverlay(overlay);
@@ -237,15 +237,16 @@ namespace Umbra
         }
         void DrawPause()
         {
-                Box(Backdrop,new(0,0,0,.5f));Panel(new(560,260,480,410));
-                Label(610,310,"A MOMENT OF STILLNESS",number);
-                Label(610,355,"The grove can wait.",text,muted);
-                if(Button(new(610,395,380,40),"RETURN TO THE GROVE"))Game.TogglePause();
-                if(Button(new(610,445,185,36),Game.Muted?"SOUND: OFF":"SOUND: ON"))Game.ToggleSound();
-                if(Button(new(805,445,185,36),Game.SoftFocus?"SOFT FOCUS: ON":"SOFT FOCUS: OFF"))Game.ToggleFocus();
-                if(Button(new(610,490,240,36),Game.IsMobile?"CONTROLS: MOBILE TOUCH":"CONTROLS: DESKTOP"))Game.ToggleMobileInput();
-                if(Button(new(860,490,130,36),"SPEED: "+Game.GameSpeedLabel))Game.CycleGameSpeed();
-                if(Button(new(610,535,380,40),"END RUN & BANK COLLECTED REWARDS"))Game.FinishRun(false,"Returned safely to camp");
+            Box(Backdrop,new(0,0,0,.5f));Panel(new(560,260,480,410));
+            Label(610,310,Loc.T("A MOMENT OF STILLNESS","ช่วงเวลาแห่งความสงบ"),number);
+            Label(610,355,Loc.T("The grove can wait.","ผืนป่าแห่งนี้ยังรอได้"),text,muted);
+            if(Button(new(610,395,380,40),Loc.T("RETURN TO THE GROVE","กลับสู่ผืนป่า")))Game.TogglePause();
+            if(Button(new(610,445,185,36),Game.Muted?Loc.T("SOUND: OFF","เสียง: ปิด"):Loc.T("SOUND: ON","เสียง: เปิด")))Game.ToggleSound();
+            if(Button(new(805,445,185,36),Game.SoftFocus?Loc.T("SOFT FOCUS: ON","เบลอฉาก: เปิด"):Loc.T("SOFT FOCUS: OFF","เบลอฉาก: ปิด")))Game.ToggleFocus();
+            if(Button(new(610,490,185,36),Game.IsMobile?Loc.T("CTRL: TOUCH","ควบคุม: สัมผัส"):Loc.T("CTRL: DESKTOP","ควบคุม: คีย์บอร์ด")))Game.ToggleMobileInput();
+            if(Button(new(805,490,95,36),Loc.T("SPD: ","เร็ว: ")+Game.GameSpeedLabel))Game.CycleGameSpeed();
+            if(Button(new(910,490,80,36),Game.LanguageLabel))Game.ToggleLanguage();
+            if(Button(new(610,535,380,40),Loc.T("END RUN & BANK COLLECTED REWARDS","จบการสำรวจและเก็บรางวัลเข้าคลัง")))Game.FinishRun(false,"Returned safely to camp");
         }
         void Skill(float x,string key,string name,float remaining,float cooldown,System.Action action)
         {
@@ -257,7 +258,7 @@ namespace Umbra
         {
             Anchor(0, 0);
             Panel(new(26, 145, 322, 38));
-            Label(38, 153, "EXPEDITION AMBER: " + Game.RunShards.ToString("N0"), heading, gold, 300);
+            Label(38, 153, Loc.T("EXPEDITION AMBER: ","อำพันรอบนี้: ") + Game.RunShards.ToString("N0"), heading, gold, 300);
 
             // 1. Virtual Joystick (Bottom-Left)
             Vector2 stickCenter = Game.IsJoystickActive ? Game.JoystickOrigin : layout.Point(new Vector2(175, 735), 0, 1);
@@ -274,7 +275,7 @@ namespace Umbra
             if (!Game.IsJoystickActive)
             {
                 var moveStyle = new GUIStyle(centered) { fontSize = 12, normal = { textColor = new Color(cream.r, cream.g, cream.b, 0.55f) } };
-                GUI.Label(new Rect(stickCenter.x - 60, stickCenter.y - 10, 120, 20), "DRAG TO MOVE", moveStyle);
+                GUI.Label(new Rect(stickCenter.x - 60, stickCenter.y - 10, 120, 20), Loc.T("DRAG TO MOVE","ลากเพื่อเดิน"), moveStyle);
             }
 
             CircleRing(knobPos, 32f, 2.5f, gold, new Color(0.12f, 0.20f, 0.16f, 0.95f));
@@ -297,11 +298,11 @@ namespace Umbra
             {
                 float frac = Game.DashRemaining / CombatRules.DashCooldown;
                 Circle(dodgeCenter, 58f * Mathf.Clamp01(frac), new Color(0.25f, 0.08f, 0.08f, 0.65f));
-                Label(dodgeCenter.x - 50, dodgeCenter.y - 18, "DODGE\n" + Game.DashRemaining.ToString("0.0") + "s", btnStyle, cream, 100);
+                Label(dodgeCenter.x - 50, dodgeCenter.y - 18, Loc.T("DODGE\n","พุ่ง\n") + Game.DashRemaining.ToString("0.0") + "s", btnStyle, cream, 100);
             }
             else
             {
-                Label(dodgeCenter.x - 50, dodgeCenter.y - 18, "DODGE\nREADY", btnStyle, mint, 100);
+                Label(dodgeCenter.x - 50, dodgeCenter.y - 18, Loc.T("DODGE\nREADY","พุ่ง\nพร้อม"), btnStyle, mint, 100);
             }
 
             // B. NOVA Button (Radius 48)
@@ -312,11 +313,11 @@ namespace Umbra
             {
                 float frac = Game.VolleyRemaining / CombatRules.VolleyCooldown;
                 Circle(novaCenter, 48f * Mathf.Clamp01(frac), new Color(0.25f, 0.08f, 0.08f, 0.65f));
-                Label(novaCenter.x - 45, novaCenter.y - 18, "NOVA\n" + Game.VolleyRemaining.ToString("0.0") + "s", btnStyle, cream, 90);
+                Label(novaCenter.x - 45, novaCenter.y - 18, Loc.T("NOVA\n","วายุ\n") + Game.VolleyRemaining.ToString("0.0") + "s", btnStyle, cream, 90);
             }
             else
             {
-                Label(novaCenter.x - 45, novaCenter.y - 18, "NOVA\nREADY", btnStyle, gold, 90);
+                Label(novaCenter.x - 45, novaCenter.y - 18, Loc.T("NOVA\nREADY","วายุ\nพร้อม"), btnStyle, gold, 90);
             }
 
             // C. MEND Button (Radius 48)
@@ -327,21 +328,21 @@ namespace Umbra
             {
                 float frac = Game.HealRemaining / CombatRules.HealCooldown;
                 Circle(healCenter, 48f * Mathf.Clamp01(frac), new Color(0.25f, 0.08f, 0.08f, 0.65f));
-                Label(healCenter.x - 45, healCenter.y - 18, "MEND\n" + Game.HealRemaining.ToString("0.0") + "s", btnStyle, cream, 90);
+                Label(healCenter.x - 45, healCenter.y - 18, Loc.T("MEND\n","ฟื้นฟู\n") + Game.HealRemaining.ToString("0.0") + "s", btnStyle, cream, 90);
             }
             else
             {
-                Label(healCenter.x - 45, healCenter.y - 18, "MEND\nREADY", btnStyle, new Color(.35f, .85f, .45f), 90);
+                Label(healCenter.x - 45, healCenter.y - 18, Loc.T("MEND\nREADY","ฟื้นฟู\nพร้อม"), btnStyle, new Color(.35f, .85f, .45f), 90);
             }
 
             // D. AIM TOGGLE Button (Radius 40)
             Color aimRingColor = Game.AutoAim ? gold : muted;
             CircleRing(aimCenter, 40f, 2.5f, aimRingColor, new Color(0.06f, 0.10f, 0.08f, 0.88f));
             var aimStyle = new GUIStyle(centered) { fontSize = 12, fontStyle = FontStyle.Bold };
-            Label(aimCenter.x - 40, aimCenter.y - 16, Game.AutoAim ? "AIM\nAUTO" : "AIM\nMANUAL", aimStyle, Game.AutoAim ? gold : cream, 80);
+            Label(aimCenter.x - 40, aimCenter.y - 16, Game.AutoAim ? Loc.T("AIM\nAUTO","เล็ง\nออโต้") : Loc.T("AIM\nMANUAL","เล็ง\nเอง"), aimStyle, Game.AutoAim ? gold : cream, 80);
 
             // Quick mobile Tab / Runes button
-            if (Button(new Rect(1430, 480, 110, 42), "BUILD [TAB]")) Game.RunePanel = !Game.RunePanel;
+            if (Button(new Rect(1430, 480, 110, 42), Loc.T("BUILD [TAB]","บิลด์ [TAB]"))) Game.RunePanel = !Game.RunePanel;
         }
         float EaseOutBack(float x)
         {
@@ -360,10 +361,10 @@ namespace Umbra
             Box(Backdrop, new Color(0, 0, 0, backdropAlpha));
 
             Panel(new(250, 150, 1100, 580));
-            Label(570, 180, "C H O O S E   A   B O O N", title, gold);
-            Label(480, 230, "Choose a boon to empower your spirit in the grove:", text, cream);
+            Label(570, 180, Loc.T("C H O O S E   A   B O O N","เ ลื อ ก รั บ พ ลั ง บู น"), title, gold);
+            Label(480, 230, Loc.T("Choose a boon to empower your spirit in the grove:","เลือกรับพลังเพื่อเสริมความแข็งแกร่งในผืนป่า:"), text, cream);
 
-            if (Game.Rerolls > 0 && Button(new(1035, 192, 250, 36), "REROLL [R]  /  " + Game.Rerolls + " LEFT"))
+            if (Game.Rerolls > 0 && Button(new(1035, 192, 250, 36), Loc.T("REROLL [R]  /  ","สุ่มใหม่ [R]  /  ") + Game.Rerolls + Loc.T(" LEFT"," ครั้ง")))
             {
                 Game.RerollDraft();
                 return;
@@ -446,15 +447,15 @@ namespace Umbra
                 Box(new Rect(x + 5, y + 5, cardWidth - 10, 1), rarityColor * 0.4f);
                 if (GUI.Button(cardRect, GUIContent.none, GUIStyle.none)) {Game.ApplyPerk(perk);return;}
 
-                Label(x + 20, y + 20, perk.Category + "  •  " + perk.Rarity, small, rarityColor, cardWidth - 40);
+                Label(x + 20, y + 20, Loc.PerkCategory(perk.Category) + "  •  " + Loc.PerkRarity(perk.Rarity), small, rarityColor, cardWidth - 40);
                 var nameStyle = new GUIStyle(heading) { fontSize = 18, fontStyle = FontStyle.Bold };
-                Label(x + 20, y + 48, perk.Title, nameStyle, cream, cardWidth - 40);
+                Label(x + 20, y + 48, Loc.PerkTitle(perk.Kind), nameStyle, cream, cardWidth - 40);
                 Box(new Rect(x + 20, y + 82, cardWidth - 40, 2), new Color(rarityColor.r, rarityColor.g, rarityColor.b, .35f));
 
                 var wrapStyle = new GUIStyle(text) { wordWrap = true, fontSize = 15, normal = { textColor = cream } };
-                GUI.Label(new Rect(x + 20, y + 100, cardWidth - 40, 220), perk.Description, wrapStyle);
+                GUI.Label(new Rect(x + 20, y + 100, cardWidth - 40, 220), Loc.PerkDescription(perk.Kind), wrapStyle);
 
-                string btnLabel = Game.IsMobile ? "ACCEPT BOON" : "[" + (i + 1) + "] ACCEPT BOON";
+                string btnLabel = Game.IsMobile ? Loc.T("ACCEPT BOON","ยอมรับพลังนี้") : "[" + (i + 1) + "] " + Loc.T("ACCEPT BOON","ยอมรับพลังนี้");
                 if (Button(new Rect(x + 25, y + cardHeight - 65, cardWidth - 50, 44), btnLabel, true))
                 {
                     Game.ApplyPerk(perk);return;
@@ -464,36 +465,36 @@ namespace Umbra
         void DrawRunes()
         {
             Box(Backdrop,new(0,0,0,.45f));Panel(new(376,237,848,409));
-            Label(408,264,"THE ART OF THE ARROW",title);
-            Label(410,312,Game.Phase==RunPhase.Camp?"Choose a starting rune. Shared by every class.":"Your run build. Boons reset when you return to camp.",text,muted);
+            Label(408,264,Loc.T("THE ART OF THE ARROW","ศาสตร์แห่งศร"),title);
+            Label(410,312,Game.Phase==RunPhase.Camp?Loc.T("Choose a starting rune. Shared by every class.","เลือกลู่วิ่งรูนเริ่มต้น ทุกคลาสสามารถใช้ร่วมกันได้"):Loc.T("Your run build. Boons reset when you return to camp.","บิลด์ในรอบปัจจุบัน บูนจะรีเซ็ตเมื่อกลับสู่แคมป์"),text,muted);
             for(int i=0;i<3;i++)
             {
                 RuneKind rune=(RuneKind)i;float x=407+i*269;
                 Panel(new(x,367,248,189));
-                Label(x+17,385,"0"+(i+1)+"  /  SUPPORT RUNE",small,gold);
-                Label(x+17,414,CombatRules.RuneName(rune),heading);
+                Label(x+17,385,"0"+(i+1)+"  /  "+Loc.T("SUPPORT RUNE","รูนสนับสนุน"),small,gold);
+                Label(x+17,414,Loc.RuneName(rune),heading);
                 var wrap=new GUIStyle(small){wordWrap=true};
-                GUI.Label(new Rect(x+17,446,215,53),CombatRules.RuneDescription(rune),wrap);
-                if(Game.Phase==RunPhase.Camp){if(Button(new(x+17,508,214,33),Game.Rune==rune?"EQUIPPED":"EQUIP",Game.Rune==rune))Game.SetRune(rune);}
-                else Label(x+17,515,Game.Rune==rune?"EQUIPPED":"Available through boon draft",small,Game.Rune==rune?gold:muted,220);
+                GUI.Label(new Rect(x+17,446,215,53),Loc.RuneDescription(rune),wrap);
+                if(Game.Phase==RunPhase.Camp){if(Button(new(x+17,508,214,33),Game.Rune==rune?Loc.T("EQUIPPED","สวมใส่อยู่"):Loc.T("EQUIP","สวมใส่"),Game.Rune==rune))Game.SetRune(rune);}
+                else Label(x+17,515,Game.Rune==rune?Loc.T("EQUIPPED","สวมใส่อยู่"):Loc.T("Available through boon draft","หาได้จากการสุ่มบูนในด่าน"),small,Game.Rune==rune?gold:muted,220);
             }
-            if(Button(new(945,589,246,34),"BACK TO THE GROVE  [TAB]"))Game.RunePanel=false;
-            Label(409,584,"ATK "+Game.AttackDamage+"  /  SPEED "+Game.AttackSpeedMultiplier.ToString("0.00")+"x  /  EXTRA SHOTS "+Game.BonusProjectiles,small,muted);
-            Label(409,609,"Armor "+Game.PlayerArmor+"  /  Chain "+Game.Rank(CombatRules.PerkKind.Chain)+"  /  Ignite "+Game.Rank(CombatRules.PerkKind.Ignite)+"  /  Sprout "+Game.Rank(CombatRules.PerkKind.SproutCard)+"  /  Mushroom "+Game.Rank(CombatRules.PerkKind.MushroomCard),small,muted);
+            if(Button(new(945,589,246,34),Loc.T("BACK TO THE GROVE  [TAB]","กลับสู่ผืนป่า  [TAB]")))Game.RunePanel=false;
+            Label(409,584,Loc.T("ATK ","พลังโจมตี ")+Game.AttackDamage+Loc.T("  /  SPEED ","  /  ความเร็ว ")+Game.AttackSpeedMultiplier.ToString("0.00")+"x"+Loc.T("  /  EXTRA SHOTS ","  /  กระสุนเสริม ")+Game.BonusProjectiles,small,muted);
+            Label(409,609,Loc.T("Armor ","เกราะ ")+Game.PlayerArmor+Loc.T("  /  Chain ","  /  ชิ่ง ")+Game.Rank(CombatRules.PerkKind.Chain)+Loc.T("  /  Ignite ","  /  เผาไหม้ ")+Game.Rank(CombatRules.PerkKind.Ignite)+Loc.T("  /  Sprout ","  /  ต้นกล้า ")+Game.Rank(CombatRules.PerkKind.SproutCard)+Loc.T("  /  Mushroom ","  /  เห็ด ")+Game.Rank(CombatRules.PerkKind.MushroomCard),small,muted);
         }
         void DrawStats()
         {
             Box(Backdrop,new Color(0,0,0,.72f));
             Panel(new(460,130,680,640));
-            Label(570,155,"C H A R A C T E R   S T A T U S",title,gold);
-            Label(525,205,Game.Class+"  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)" + (Game.PlayerArmor > 0 ? "  •  ARMOR: " + Game.PlayerArmor : ""),text,cream);
+            Label(570,155,Loc.T("C H A R A C T E R   S T A T U S","ส เ ต ตั ส ตั ว ล ะ ค ร"),title,gold);
+            Label(525,205,Loc.ClassName(Game.Class)+"  •  "+Loc.T("BASE LV. ","เลเวลหลัก ")+Game.Level+"  ("+Game.Experience+" / "+CombatRules.ExperienceToLevel(Game.Level)+" EXP)"+(Game.PlayerArmor>0?Loc.T("  •  ARMOR: ","  •  เกราะ: ")+Game.PlayerArmor:""),text,cream);
 
             // Points Banner
             Panel(new(490,240,620,48));
             bool hasPts = Game.StatPoints > 0 && Game.Phase==RunPhase.Camp;
-            Label(510,252,"AVAILABLE STAT POINTS:  " + Game.StatPoints,heading,hasPts?mint:muted);
-            if(Game.Phase==RunPhase.Camp){if(Button(new(930,248,160,32),"RESET STATS (FREE)")) Game.ResetStats();}
-            else Label(925,256,"Allocate at camp",small,muted,170);
+            Label(510,252,Loc.T("AVAILABLE STAT POINTS:  ","แต้มสเตตัสคงเหลือ:  ")+Game.StatPoints,heading,hasPts?mint:muted);
+            if(Game.Phase==RunPhase.Camp){if(Button(new(930,248,160,32),Loc.T("RESET STATS (FREE)","รีเซ็ตแต้ม (ฟรี)")))Game.ResetStats();}
+            else Label(925,256,Loc.T("Allocate at camp","อัปแต้มได้ที่แคมป์"),small,muted,170);
 
             // 6 Stats rows
             CombatRules.StatKind[] stats = (CombatRules.StatKind[])System.Enum.GetValues(typeof(CombatRules.StatKind));
@@ -505,19 +506,11 @@ namespace Umbra
                 Box(new(490, y, 620, 50), new Color(.07f,.11f,.09f,.92f));
                 Box(new(490, y+48, 620, 2), new Color(gold.r,gold.g,gold.b,.25f));
 
-                Label(510, y+13, s.ToString(), heading, gold);
+                Label(510, y+13, Loc.StatName(s), heading, gold);
                 Label(570, y+13, Game.GetStat(s).ToString("00"), number, cream);
 
-                string desc = s switch
-                {
-                    CombatRules.StatKind.STR => "+" + ((Game.STR-1)*2) + "% Base Damage",
-                    CombatRules.StatKind.AGI => "+" + ((Game.AGI-1)*1.5f).ToString("0.0") + "% Atk Speed  •  +" + ((Game.AGI-1)*0.4f).ToString("0.0") + "% Move Speed",
-                    CombatRules.StatKind.VIT => "+" + ((Game.VIT-1)*8) + " Max HP  •  +" + CombatRules.HealthRegenPerSecond(Game.VIT).ToString("0.00") + " HP/s Regen",
-                    CombatRules.StatKind.INT => "-" + (CombatRules.CooldownReduction(Game.INT)*100).ToString("0.0") + "% Cooldowns  /  Mage spell damage",
-                    CombatRules.StatKind.DEX => "+" + ((Game.DEX-1)*2) + "% Arrow Speed  •  +" + ((Game.DEX-1)*1.5f).ToString("0.0") + "% Arrow Dmg",
-                    _ => (CombatRules.CritChance(Game.LUK)*100).ToString("0.0") + "% Crit Chance (1.75x)  •  Rare Boon Luck"
-                };
-                Label(625, y+16, desc, small, muted, 360);
+                string desc = Loc.StatDescription(s, Game.STR, Game.AGI, Game.VIT, Game.INT, Game.DEX, Game.LUK);
+                Label(625, y+16, desc, small, muted, 390);
 
                 if(hasPts)
                 {
@@ -528,24 +521,37 @@ namespace Umbra
                 }
             }
 
-            if(Button(new(700, 672, 200, 42), "CLOSE  [C]")) Game.StatsPanel = false;
+            if(Button(new(700, 672, 200, 42), Loc.T("CLOSE  [C]","ปิด  [C]"))) Game.StatsPanel = false;
         }
         void DrawGuide()
         {
             Box(Backdrop,new(0,0,0,.45f));Panel(new(480,228,640,460));
-            Label(516,254,"WELCOME, WANDERER",title);
-            string[] lines={"WASD / Arrow keys     Move through the grove",
-                            "Right mouse                 Travel to a point (no pathfinding)",
-                            "Left mouse / Auto-aim  Fire spirit arrows at nearby enemies",
-                            "C                                    Character Stats: distribute STR, AGI, VIT, INT, DEX, LUK",
-                            "Q                                   Wind Nova: a ring of arrows",
-                            "Space                            Quickstep with brief invulnerability",
-                            "E                                    Mend: restore health",
-                            "Tab                                Inspect your run build (pauses)",
-                            "Camp                             Change class, rune and stats for free",
-                            "Defeat the guardian at 14:00 before time expires at 15:00."};
+            Label(516,254,Loc.T("WELCOME, WANDERER","ยินดีต้อนรับ ผู้พเนจร"),title);
+            string[] lines = Loc.Current == GameLanguage.Thai ? new[] {
+                "WASD / ปุ่มลูกศร     เคลื่อนที่ผ่านผืนป่า",
+                "คลิกขวา                       เดินทางไปยังจุดเป้าหมาย",
+                "คลิกซ้าย / เล็งออโต้   ยิงศรวิญญาณใส่ศัตรูใกล้เคียง",
+                "C                                    หน้าต่างสเตตัส: จัดสรร STR, AGI, VIT, INT, DEX, LUK",
+                "Q                                   ระเบิดวายุ: ปล่อยวงแหวนศรสังหาร",
+                "Space                            ก้าวย่างพริบตา หลบหลีกพร้อมอมตะชั่วขณะ",
+                "E                                    ฟื้นฟู: ฟื้นคืนพลังชีวิต",
+                "Tab                                ตรวจสอบบิลด์ประจำรอบ (หยุดเกมชั่วคราว)",
+                "แคมป์                             เปลี่ยนคลาส รูน และรีเซ็ตสเตตัสได้ฟรีไม่มีจำกัด",
+                "ปราบบอสผู้พิทักษ์ที่จะมาถึงในนาทีที่ 14:00 ก่อนหมดเวลาที่ 15:00"
+            } : new[] {
+                "WASD / Arrow keys     Move through the grove",
+                "Right mouse                 Travel to a point (no pathfinding)",
+                "Left mouse / Auto-aim  Fire spirit arrows at nearby enemies",
+                "C                                    Character Stats: distribute STR, AGI, VIT, INT, DEX, LUK",
+                "Q                                   Wind Nova: a ring of arrows",
+                "Space                            Quickstep with brief invulnerability",
+                "E                                    Mend: restore health",
+                "Tab                                Inspect your run build (pauses)",
+                "Camp                             Change class, rune and stats for free",
+                "Defeat the guardian at 14:00 before time expires at 15:00."
+            };
             for(int i=0;i<lines.Length;i++)Label(516,314+i*27,lines[i],i>7?small:text,i>7?muted:cream);
-            if(Button(new(516,624,568,38),"BEGIN EXPLORING  [H]")) Game.HelpPanel=false;
+            if(Button(new(516,624,568,38),Loc.T("BEGIN EXPLORING  [H]","เริ่มการสำรวจ  [H]"))) Game.HelpPanel=false;
         }
     }
 }
