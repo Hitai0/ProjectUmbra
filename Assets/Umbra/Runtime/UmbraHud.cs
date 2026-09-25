@@ -7,7 +7,7 @@ namespace Umbra
     {
         public UmbraPrototype Game;
         GUIStyle text, small, title, number, button, centered, damage, heading;
-        Texture2D portrait;
+        Texture2D portrait, circleTex;
         readonly Color cream=new(.93f,.88f,.73f), gold=new(.77f,.60f,.31f), muted=new(.60f,.65f,.57f), mint=new(.42f,.79f,.63f);
         float scale;
         void Styles()
@@ -46,6 +46,35 @@ namespace Umbra
             Box(new(x,y,width,7),new(.02f,.04f,.03f));
             Box(new(x,y,width*Mathf.Clamp01(fraction),7),color);
             Box(new(x,y,width*Mathf.Clamp01(fraction),1),new(color.r*1.3f,color.g*1.3f,color.b*1.3f));
+        }
+        Texture2D MakeCircleTexture(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = size / 2f;
+            float radius = center - 1.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(center, center));
+                    float a = Mathf.Clamp01(radius - d + 0.5f);
+                    tex.SetPixel(x, y, new Color(1, 1, 1, a));
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+        void Circle(Vector2 center, float radius, Color color)
+        {
+            if (circleTex == null) circleTex = MakeCircleTexture(64);
+            GUI.color = color;
+            GUI.DrawTexture(new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2), circleTex);
+            GUI.color = Color.white;
+        }
+        void CircleRing(Vector2 center, float radius, float stroke, Color ringColor, Color fillColor)
+        {
+            Circle(center, radius + stroke, ringColor);
+            Circle(center, radius, fillColor);
         }
         void OnGUI()
         {
@@ -90,7 +119,7 @@ namespace Umbra
 
             Panel(new(1265,26,308,52));
             if(Button(new(1275,36,90,31),"RUNES  [TAB]",Game.RunePanel))Game.RunePanel=!Game.RunePanel;
-            if(Button(new(1373,36,88,31),"GUIDE  [H]",Game.HelpPanel))Game.HelpPanel=!Game.HelpPanel;
+            if(Button(new(1373,36,88,31),Game.IsMobile?"TOUCH":"DESKTOP",Game.IsMobile))Game.ToggleMobileInput();
             if(Button(new(1469,36,94,31),"PAUSE  [ESC]",Game.Paused))Game.TogglePause();
 
             Panel(new(1334,97,239,214));
@@ -120,20 +149,27 @@ namespace Umbra
                 Box(new(425,112,750,38),new(.055f,.10f,.075f,.80f));
                 GUI.Label(new Rect(425,112,750,38),Game.Notice,style);
             }
-            Panel(new(26,792,304,79));
-            Label(43,803,"THIS EXPEDITION",small,muted);
-            Label(43,824,Game.RunShards.ToString("N0")+"  amber",number,gold);
-            Label(200,835,"Banked at end",small,muted);
+            if(!Game.IsMobile)
+            {
+                Panel(new(26,792,304,79));
+                Label(43,803,"THIS EXPEDITION",small,muted);
+                Label(43,824,Game.RunShards.ToString("N0")+"  amber",number,gold);
+                Label(200,835,"Banked at end",small,muted);
 
-            Panel(new(447,789,704,83));
-            Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?"Auto-firing at nearest foe.":"Hold LMB to aim and fire."));
-            Skill(598,"Q","WIND NOVA",Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
-            Skill(735,"SPACE","QUICKSTEP",Game.DashRemaining,CombatRules.DashCooldown,()=>Game.TryDash());
-            Skill(872,"E","MEND",Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
-            if(Button(new(1009,802,126,55),"TAB\nBUILD DETAILS"))Game.RunePanel=!Game.RunePanel;
-            Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?"AUTO-AIM ON":"MANUAL AIM"),small,gold);
-            Label(1254,826,"WASD move   /   RMB travel",small,cream);
-            Label(1254,847,"Scroll zoom   /   H controls",small,muted);
+                Panel(new(447,789,704,83));
+                Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?"Auto-firing at nearest foe.":"Hold LMB to aim and fire."));
+                Skill(598,"Q","WIND NOVA",Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
+                Skill(735,"SPACE","QUICKSTEP",Game.DashRemaining,CombatRules.DashCooldown,()=>Game.TryDash());
+                Skill(872,"E","MEND",Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
+                if(Button(new(1009,802,126,55),"TAB\nBUILD DETAILS"))Game.RunePanel=!Game.RunePanel;
+                Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?"AUTO-AIM ON":"MANUAL AIM"),small,gold);
+                Label(1254,826,"WASD move   /   RMB travel",small,cream);
+                Label(1254,847,"Scroll zoom   /   H controls",small,muted);
+            }
+            else
+            {
+                DrawMobileCombatHud();
+            }
             Label(28,880,"PRE-ALPHA  "+UmbraPrototype.Version+"   /   ROGUELITE HORDE SURVIVAL",small,muted,700);
 
             if(Game.RunePanel)DrawRunes();
@@ -142,13 +178,14 @@ namespace Umbra
             if(Game.Drafting)DrawDraft();
             if(Game.Paused)
             {
-                Box(new(0,0,1600,900),new(0,0,0,.5f));Panel(new(560,280,480,355));
-                Label(610,379,"A MOMENT OF STILLNESS",number);
-                Label(610,424,"The grove can wait.",text,muted);
-                if(Button(new(610,465,380,40),"RETURN TO THE GROVE"))Game.TogglePause();
-                if(Button(new(610,515,185,36),Game.Muted?"SOUND: OFF":"SOUND: ON"))Game.ToggleSound();
-                if(Button(new(805,515,185,36),Game.SoftFocus?"SOFT FOCUS: ON":"SOFT FOCUS: OFF"))Game.ToggleFocus();
-                if(Button(new(610,568,380,40),"END RUN & BANK COLLECTED REWARDS"))Game.FinishRun(false,"Returned safely to camp");
+                Box(new(0,0,1600,900),new(0,0,0,.5f));Panel(new(560,260,480,410));
+                Label(610,310,"A MOMENT OF STILLNESS",number);
+                Label(610,355,"The grove can wait.",text,muted);
+                if(Button(new(610,395,380,40),"RETURN TO THE GROVE"))Game.TogglePause();
+                if(Button(new(610,445,185,36),Game.Muted?"SOUND: OFF":"SOUND: ON"))Game.ToggleSound();
+                if(Button(new(805,445,185,36),Game.SoftFocus?"SOFT FOCUS: ON":"SOFT FOCUS: OFF"))Game.ToggleFocus();
+                if(Button(new(610,490,380,36),Game.IsMobile?"CONTROLS: MOBILE TOUCH":"CONTROLS: DESKTOP"))Game.ToggleMobileInput();
+                if(Button(new(610,535,380,40),"END RUN & BANK COLLECTED REWARDS"))Game.FinishRun(false,"Returned safely to camp");
             }
             GUI.matrix=Matrix4x4.identity;
         }
@@ -157,6 +194,94 @@ namespace Umbra
             Rect rect=new(x,802,126,55);
             if(Button(rect,key+"\n"+(remaining>0?remaining.ToString("0.0")+"s":name)))action();
             if(remaining>0)Bar(x,856,126,1-remaining/cooldown,mint);
+        }
+        void DrawMobileCombatHud()
+        {
+            Panel(new(26, 126, 322, 38));
+            Label(38, 134, "EXPEDITION AMBER: " + Game.RunShards.ToString("N0"), heading, gold, 300);
+
+            // 1. Virtual Joystick (Bottom-Left)
+            Vector2 stickCenter = Game.IsJoystickActive ? Game.JoystickOrigin : new Vector2(175, 735);
+            Vector2 knobPos = Game.IsJoystickActive ? Game.JoystickCurrent : stickCenter;
+
+            CircleRing(stickCenter, 75f, 3f, new Color(gold.r, gold.g, gold.b, Game.IsJoystickActive ? 0.65f : 0.30f), new Color(0.04f, 0.07f, 0.05f, 0.65f));
+
+            float tickDist = 45f;
+            Box(new Rect(stickCenter.x - 1, stickCenter.y - tickDist - 8, 2, 8), new Color(gold.r, gold.g, gold.b, 0.35f));
+            Box(new Rect(stickCenter.x - 1, stickCenter.y + tickDist, 2, 8), new Color(gold.r, gold.g, gold.b, 0.35f));
+            Box(new Rect(stickCenter.x - tickDist - 8, stickCenter.y - 1, 8, 2), new Color(gold.r, gold.g, gold.b, 0.35f));
+            Box(new Rect(stickCenter.x + tickDist, stickCenter.y - 1, 8, 2), new Color(gold.r, gold.g, gold.b, 0.35f));
+
+            if (!Game.IsJoystickActive)
+            {
+                var moveStyle = new GUIStyle(centered) { fontSize = 12, normal = { textColor = new Color(cream.r, cream.g, cream.b, 0.55f) } };
+                GUI.Label(new Rect(stickCenter.x - 60, stickCenter.y - 10, 120, 20), "DRAG TO MOVE", moveStyle);
+            }
+
+            CircleRing(knobPos, 32f, 2.5f, gold, new Color(0.12f, 0.20f, 0.16f, 0.95f));
+            Circle(knobPos, 12f, Game.IsJoystickActive ? mint : gold);
+
+            // 2. Action Buttons (Bottom-Right Arc)
+            Vector2 dodgeCenter = new(1430, 730);
+            Vector2 novaCenter = new(1295, 755);
+            Vector2 healCenter = new(1430, 585);
+            Vector2 aimCenter = new(1295, 635);
+
+            var btnStyle = new GUIStyle(centered) { fontSize = 14, fontStyle = FontStyle.Bold };
+
+            // A. DODGE Button (Radius 58)
+            bool dodgeReady = Game.DashRemaining <= 0;
+            Color dodgeRingColor = dodgeReady ? mint : new Color(0.4f, 0.45f, 0.4f, 0.5f);
+            CircleRing(dodgeCenter, 58f, 3.5f, dodgeRingColor, new Color(0.06f, 0.10f, 0.08f, 0.92f));
+            if (!dodgeReady)
+            {
+                float frac = Game.DashRemaining / CombatRules.DashCooldown;
+                Circle(dodgeCenter, 58f * Mathf.Clamp01(frac), new Color(0.25f, 0.08f, 0.08f, 0.65f));
+                Label(dodgeCenter.x - 50, dodgeCenter.y - 18, "DODGE\n" + Game.DashRemaining.ToString("0.0") + "s", btnStyle, cream, 100);
+            }
+            else
+            {
+                Label(dodgeCenter.x - 50, dodgeCenter.y - 18, "DODGE\nREADY", btnStyle, mint, 100);
+            }
+
+            // B. NOVA Button (Radius 48)
+            bool novaReady = Game.VolleyRemaining <= 0;
+            Color novaRingColor = novaReady ? gold : new Color(0.4f, 0.45f, 0.4f, 0.5f);
+            CircleRing(novaCenter, 48f, 3f, novaRingColor, new Color(0.06f, 0.10f, 0.08f, 0.92f));
+            if (!novaReady)
+            {
+                float frac = Game.VolleyRemaining / CombatRules.VolleyCooldown;
+                Circle(novaCenter, 48f * Mathf.Clamp01(frac), new Color(0.25f, 0.08f, 0.08f, 0.65f));
+                Label(novaCenter.x - 45, novaCenter.y - 18, "NOVA\n" + Game.VolleyRemaining.ToString("0.0") + "s", btnStyle, cream, 90);
+            }
+            else
+            {
+                Label(novaCenter.x - 45, novaCenter.y - 18, "NOVA\nREADY", btnStyle, gold, 90);
+            }
+
+            // C. MEND Button (Radius 48)
+            bool healReady = Game.HealRemaining <= 0;
+            Color healRingColor = healReady ? new Color(.35f, .85f, .45f) : new Color(0.4f, 0.45f, 0.4f, 0.5f);
+            CircleRing(healCenter, 48f, 3f, healRingColor, new Color(0.06f, 0.10f, 0.08f, 0.92f));
+            if (!healReady)
+            {
+                float frac = Game.HealRemaining / CombatRules.HealCooldown;
+                Circle(healCenter, 48f * Mathf.Clamp01(frac), new Color(0.25f, 0.08f, 0.08f, 0.65f));
+                Label(healCenter.x - 45, healCenter.y - 18, "MEND\n" + Game.HealRemaining.ToString("0.0") + "s", btnStyle, cream, 90);
+            }
+            else
+            {
+                Label(healCenter.x - 45, healCenter.y - 18, "MEND\nREADY", btnStyle, new Color(.35f, .85f, .45f), 90);
+            }
+
+            // D. AIM TOGGLE Button (Radius 40)
+            Color aimRingColor = Game.AutoAim ? gold : muted;
+            CircleRing(aimCenter, 40f, 2.5f, aimRingColor, new Color(0.06f, 0.10f, 0.08f, 0.88f));
+            var aimStyle = new GUIStyle(centered) { fontSize = 12, fontStyle = FontStyle.Bold };
+            Label(aimCenter.x - 40, aimCenter.y - 16, Game.AutoAim ? "AIM\nAUTO" : "AIM\nMANUAL", aimStyle, Game.AutoAim ? gold : cream, 80);
+
+            // Quick mobile Tab / Runes button
+            if (Button(new Rect(1430, 480, 110, 42), "BUILD [TAB]")) Game.RunePanel = !Game.RunePanel;
         }
         float EaseOutBack(float x)
         {
@@ -259,6 +384,7 @@ namespace Umbra
                 Box(new Rect(x - 2, y - 2, cardWidth + 4, cardHeight + 4), rarityColor * (isHovered ? 0.95f : 0.70f));
                 Box(cardRect, new Color(.055f, .085f, .07f, .97f));
                 Box(new Rect(x + 5, y + 5, cardWidth - 10, 1), rarityColor * 0.4f);
+                if (GUI.Button(cardRect, GUIContent.none, GUIStyle.none)) Game.ApplyPerk(perk);
 
                 Label(x + 20, y + 20, perk.Category + "  •  " + perk.Rarity, small, rarityColor, cardWidth - 40);
                 var nameStyle = new GUIStyle(heading) { fontSize = 18, fontStyle = FontStyle.Bold };
@@ -268,7 +394,7 @@ namespace Umbra
                 var wrapStyle = new GUIStyle(text) { wordWrap = true, fontSize = 15, normal = { textColor = cream } };
                 GUI.Label(new Rect(x + 20, y + 100, cardWidth - 40, 220), perk.Description, wrapStyle);
 
-                string btnLabel = "[" + (i + 1) + "] ACCEPT BOON";
+                string btnLabel = Game.IsMobile ? "ACCEPT BOON" : "[" + (i + 1) + "] ACCEPT BOON";
                 if (Button(new Rect(x + 25, y + cardHeight - 65, cardWidth - 50, 44), btnLabel, true))
                 {
                     Game.ApplyPerk(perk);

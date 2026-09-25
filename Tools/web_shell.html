@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
   <title>Project Umbra — The Wayfarer's Camp</title>
   <style>
-    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#0c1712;color:#ede5ca;font-family:Georgia,serif}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#0c1712;color:#ede5ca;font-family:Georgia,serif;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
     canvas{display:block;width:100%;height:100%;outline:none}
     #welcome{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 15%,#475638 0%,#192b20 40%,#0c1712 80%);z-index:2}
     .card{width:min(600px,90vw);text-align:center;padding:64px 40px;border:1px solid #a48a4d55;background:#102016aa;box-shadow:0 30px 100px #0005}
@@ -28,8 +28,8 @@
     <p class="copy">Choose your path. Shape your build.<br>Three expeditions. Four classes. One last guardian.<br>Up to 15 minutes per run. Progress stays on this device.</p>
     <button id="enter">ENTER CAMP</button>
     <progress id="progress" value="0" max="1"></progress>
-    <div id="status">Desktop browser recommended · Keyboard &amp; mouse</div>
-  </div><div class="footer">PRE-ALPHA 0.2.3 · SINGLE PLAYER<br>WASD MOVE &nbsp; / &nbsp; AUTO-AIM &nbsp; / &nbsp; SPACE DODGE &nbsp; / &nbsp; Q NOVA &nbsp; / &nbsp; E MEND</div></div>
+    <div id="status">Touch Screen or Keyboard &amp; Mouse supported</div>
+  </div><div class="footer">PRE-ALPHA 0.2.4 · MOBILE &amp; DESKTOP<br>TOUCH JOYSTICK / WASD MOVE &nbsp; / &nbsp; AUTO-AIM &nbsp; / &nbsp; DODGE &nbsp; / &nbsp; NOVA &nbsp; / &nbsp; MEND</div></div>
   <div id="error" role="alert"></div>
   <button id="fullscreen" aria-label="Toggle fullscreen">FULLSCREEN</button>
   <script>
@@ -39,7 +39,7 @@
     document.querySelector('#fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();canvas.focus();}catch(err){status.textContent='Fullscreen is unavailable in this browser.';}};
     enter.addEventListener('click',()=>{
       enter.disabled=true;enter.textContent='OPENING THE PATH';progress.style.display='block';
-      const v='0.2.3';
+      const v='0.2.4';
       const script=document.createElement('script');script.src='Build/@@BUILD_NAME@@.loader.js?v='+v;
       script.onerror=()=>showError('Unity loader could not be downloaded. Check the Web build and local server.');
       script.onload=()=>createUnityInstance(canvas,{

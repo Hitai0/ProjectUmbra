@@ -11,7 +11,7 @@ namespace Umbra
 {
     public sealed partial class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.2.3";
+        public const string Version = "0.2.4";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
@@ -38,6 +38,12 @@ namespace Umbra
         public float PickupRadius { get; private set; } = 5.0f;
         public bool HasNovaPulse { get; private set; }
         public bool AutoAim { get; set; } = true;
+        public bool IsMobile { get; set; }
+        public Vector2 MobileMoveInput { get; private set; }
+        public bool IsJoystickActive { get; private set; }
+        public Vector2 JoystickOrigin { get; private set; }
+        public Vector2 JoystickCurrent { get; private set; }
+        int joystickFingerId = -1;
         public bool Drafting { get; private set; }
         public float DraftOpenedAt { get; private set; }
         public List<CombatRules.Perk> ActiveDraft { get; private set; } = new();
@@ -183,11 +189,21 @@ namespace Umbra
         void Start()
         {
             Application.targetFrameRate = 60; Application.runInBackground = true;
+            int mobilePref = PlayerPrefs.GetInt("Umbra.MobileUI", -1);
+            IsMobile = mobilePref != -1 ? (mobilePref == 1) : (Application.isMobilePlatform || SystemInfo.deviceType == DeviceType.Handheld);
             LoadProfile();
             BuildWorld();
             gameObject.AddComponent<UmbraHud>().Game = this;
             Ready = true;
             EnterCamp();
+        }
+
+        public void ToggleMobileInput()
+        {
+            IsMobile = !IsMobile;
+            PlayerPrefs.SetInt("Umbra.MobileUI", IsMobile ? 1 : 0);
+            PlayerPrefs.Save();
+            Notify(IsMobile ? "Mobile Touch Controls Enabled" : "Desktop Keyboard Controls Enabled");
         }
 
         Material Mat(string key, Color color, bool unlit = false)
@@ -510,9 +526,175 @@ namespace Umbra
             }
         }
 
+        void UpdateMobileInput()
+        {
+            if (!IsMobile)
+            {
+                var ts = Touchscreen.current;
+                if (ts != null)
+                {
+                    foreach (var t in ts.touches)
+                    {
+                        if (t.press.wasPressedThisFrame)
+                        {
+                            IsMobile = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!IsMobile) return;
+
+            bool dashPressed = false;
+            bool volleyPressed = false;
+            bool healPressed = false;
+            bool aimPressed = false;
+
+            float scale = Mathf.Min(Screen.width / 1600f, Screen.height / 900f);
+            float offsetX = (Screen.width - 1600f * scale) / 2f;
+            float offsetY = (Screen.height - 900f * scale) / 2f;
+
+            Vector2 ScreenToCanvas(Vector2 sp)
+            {
+                float gy = Screen.height - sp.y;
+                return new Vector2((sp.x - offsetX) / scale, (gy - offsetY) / scale);
+            }
+
+            Vector2 dodgeCenter = new(1430, 730); float dodgeR = 60f;
+            Vector2 novaCenter = new(1295, 755); float novaR = 48f;
+            Vector2 healCenter = new(1430, 585); float healR = 48f;
+            Vector2 aimCenter = new(1295, 635); float aimR = 40f;
+
+            var tsCur = Touchscreen.current;
+            bool hasTouch = false;
+
+            if (tsCur != null)
+            {
+                for (int i = 0; i < tsCur.touches.Count; i++)
+                {
+                    var touch = tsCur.touches[i];
+                    if (!touch.press.isPressed)
+                    {
+                        if (touch.touchId.ReadValue() == joystickFingerId)
+                        {
+                            joystickFingerId = -1;
+                            IsJoystickActive = false;
+                            MobileMoveInput = Vector2.zero;
+                        }
+                        continue;
+                    }
+
+                    hasTouch = true;
+                    int fingerId = touch.touchId.ReadValue();
+                    Vector2 sp = touch.position.ReadValue();
+                    Vector2 cp = ScreenToCanvas(sp);
+                    bool isDown = touch.press.wasPressedThisFrame;
+
+                    if (isDown && Phase == RunPhase.Running && !IsModal && !Drafting)
+                    {
+                        if (Vector2.Distance(cp, dodgeCenter) <= dodgeR) { dashPressed = true; continue; }
+                        if (Vector2.Distance(cp, novaCenter) <= novaR) { volleyPressed = true; continue; }
+                        if (Vector2.Distance(cp, healCenter) <= healR) { healPressed = true; continue; }
+                        if (Vector2.Distance(cp, aimCenter) <= aimR) { aimPressed = true; continue; }
+                    }
+
+                    if (sp.x < Screen.width * 0.48f && sp.y < Screen.height * 0.80f)
+                    {
+                        if (isDown && joystickFingerId == -1)
+                        {
+                            joystickFingerId = fingerId;
+                            IsJoystickActive = true;
+                            JoystickOrigin = cp;
+                            JoystickCurrent = cp;
+                        }
+                        else if (fingerId == joystickFingerId)
+                        {
+                            JoystickCurrent = cp;
+                        }
+                    }
+                }
+            }
+
+            var mouse = Mouse.current;
+            if (!hasTouch && mouse != null && mouse.leftButton.isPressed)
+            {
+                Vector2 mp = mouse.position.ReadValue();
+                Vector2 cp = ScreenToCanvas(mp);
+                bool isDown = mouse.leftButton.wasPressedThisFrame;
+
+                if (Phase == RunPhase.Running && !IsModal && !Drafting)
+                {
+                    if (isDown)
+                    {
+                        if (Vector2.Distance(cp, dodgeCenter) <= dodgeR) dashPressed = true;
+                        else if (Vector2.Distance(cp, novaCenter) <= novaR) volleyPressed = true;
+                        else if (Vector2.Distance(cp, healCenter) <= healR) healPressed = true;
+                        else if (Vector2.Distance(cp, aimCenter) <= aimR) aimPressed = true;
+                    }
+
+                    if (mp.x < Screen.width * 0.48f && mp.y < Screen.height * 0.80f)
+                    {
+                        if (isDown)
+                        {
+                            IsJoystickActive = true;
+                            JoystickOrigin = cp;
+                            JoystickCurrent = cp;
+                        }
+                        else if (IsJoystickActive)
+                        {
+                            JoystickCurrent = cp;
+                        }
+                    }
+                }
+            }
+            else if (!hasTouch && (mouse == null || !mouse.leftButton.isPressed))
+            {
+                if (IsJoystickActive && joystickFingerId == -1)
+                {
+                    IsJoystickActive = false;
+                    MobileMoveInput = Vector2.zero;
+                }
+            }
+
+            if (IsJoystickActive)
+            {
+                Vector2 delta = JoystickCurrent - JoystickOrigin;
+                float maxRadius = 75f;
+                if (delta.magnitude > maxRadius)
+                {
+                    delta = delta.normalized * maxRadius;
+                    JoystickCurrent = JoystickOrigin + delta;
+                }
+                float dist = delta.magnitude;
+                if (dist > 8f)
+                {
+                    MobileMoveInput = new Vector2(delta.x / maxRadius, -delta.y / maxRadius);
+                }
+                else
+                {
+                    MobileMoveInput = Vector2.zero;
+                }
+            }
+            else
+            {
+                MobileMoveInput = Vector2.zero;
+            }
+
+            if (dashPressed) TryDash();
+            if (volleyPressed) TryVolley();
+            if (healPressed) TryHeal();
+            if (aimPressed)
+            {
+                AutoAim = !AutoAim;
+                Notify(AutoAim ? "AUTO-AIM: ON" : "AUTO-AIM: OFF");
+            }
+        }
+
         void Update()
         {
             if(!Ready) return;
+            UpdateMobileInput();
             var keyboard=Keyboard.current;
             if(keyboard!=null)
             {
@@ -544,6 +726,7 @@ namespace Umbra
                 if(keyboard.qKey.wasPressedThisFrame) TryVolley();
                 if(keyboard.eKey.wasPressedThisFrame) TryHeal();
             }
+            if(IsMobile && MobileMoveInput.sqrMagnitude > 0.001f) input = MobileMoveInput;
             var mouse=Mouse.current;
             bool manual = mouse!=null && mouse.leftButton.isPressed && !PointerOverHud();
             if(mouse!=null&&!PointerOverHud())
@@ -595,6 +778,16 @@ namespace Umbra
         bool PointerOverHud()
         {
             if(Phase!=RunPhase.Running||IsModal)return true;
+            if(IsMobile)
+            {
+                Vector2 pos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+                var ts = Touchscreen.current;
+                if(ts != null && ts.primaryTouch.press.isPressed) pos = ts.primaryTouch.position.ReadValue();
+                if(pos.x < Screen.width * 0.48f && pos.y < Screen.height * 0.80f) return true;
+                if(pos.x > Screen.width * 0.65f && pos.y < Screen.height * 0.75f) return true;
+                if(pos.y > Screen.height * 0.85f) return true;
+                return false;
+            }
             if(Mouse.current==null)return false;
             Vector2 p=Mouse.current.position.ReadValue();
             return p.y<Screen.height*.16f || p.y>Screen.height*.85f || (p.x>Screen.width*.75f&&p.y>Screen.height*.45f);

@@ -1,4 +1,4 @@
-# Project Umbra — refined playable design, v0.2.3
+# Project Umbra — refined playable design, v0.2.4
 
 This replaces the earlier MMO and open-ended horde assumptions. The current target is a **single-player** 15-minute action roguelite. The supplied refined plan v2 is the reference; the decisions below describe the implemented slice, not future promises.
 
@@ -66,5 +66,13 @@ In v0.2.3, Level Up features a dedicated Ragnarok-inspired sequence:
 - Radial safety knockback pushing enemies within 3.0m back to 3.5m to eliminate cheap unpause hits.
 - Synthesized 4-note ascending chime arpeggio (C5, E5, G5, C6) with 2nd harmonic bell overtones.
 - Polished draft UI: 0.15s backdrop fade, staggered card entrance (0.05s intervals, EaseOutBack curve), hover lift (8px upward), and zero-lock quick-select hotkeys `[1]`, `[2]`, `[3]` and `[R]`.
+
+In v0.2.4, Mobile Device Detection & Touch Input Experience:
+- Automatic handheld device detection (`Application.isMobilePlatform`, `SystemInfo.deviceType`, first touch event) with manual runtime toggle (`INPUT: MOBILE TOUCH` / `DESKTOP`).
+- Floating virtual analog joystick on the lower-left screen with dynamic thumb origin, clamped radius, deadzone, and procedural antialiased circular rendering.
+- Ergonomic thumb-arc circular action buttons on the lower-right: Dodge (Space), Wind Nova (Q), Mend (E), and Auto-Aim toggle, with real-time radial cooldown sweeps and ready highlights.
+- Multi-touch support: independent left-thumb analog movement and right-thumb skill execution without interference.
+- Uncluttered mobile combat viewport: bottom desktop bar is hidden when mobile touch UI is active, freeing the center screen.
+- Full card tap selection in boon drafts for seamless mobile drafting.
 
 Next art/content pass: bespoke class sprites, richer music/SFX, additional enemy attack patterns, persistent card collection/socket UI, stagger, and more differentiated boss movement. These are not represented as implemented features. This release retains the existing procedural forest instead of claiming production Octopath-quality assets.

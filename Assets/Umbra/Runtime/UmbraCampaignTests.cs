@@ -26,6 +26,7 @@ namespace Umbra
                 Check(!TryAddStat(CombatRules.StatKind.STR),"no unearned stat points");
                 BaseLevel=3;StatPoints=6;Check(TryAddStat(CombatRules.StatKind.VIT)&&VIT==2&&StatPoints==5,"camp allocation");
                 ResetStats();Check(VIT==1&&StatPoints==6,"free respec refund");
+                bool initMobile=IsMobile;ToggleMobileInput();Check(IsMobile!=initMobile,"mobile toggle switches state");ToggleMobileInput();Check(IsMobile==initMobile,"mobile toggle restores state");
                 StartRun();Check(Drafting&&Time.timeScale==0&&RunTimer==0,"opening draft freezes timer");
                 var offered=ActiveDraft[0];ApplyPerk(offered);int rank=Rank(offered.Kind);ApplyPerk(offered);
                 Check(Rank(offered.Kind)==rank,"draft cannot be claimed twice");
