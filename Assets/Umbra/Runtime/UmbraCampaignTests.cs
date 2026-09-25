@@ -35,8 +35,8 @@ namespace Umbra
                 Check(!IsWalkable(new(12,0,0)),"river collision");
                 for(int i=0;i<100;i++)if(TrySpawnPosition(out var pos))Check(IsWalkable(pos)&&(pos-Player.position).sqrMagnitude>=64,"safe spawn "+i);
                 var e=enemies[0];SpawnEnemy(e,Player.position+Vector3.forward*2,48);int xp=EarnedExperience;DamageEnemy(e,999);
-                Check(Kills==1&&!e.root.gameObject.activeSelf&&EarnedExperience>xp,"death and run XP");
-                Player.position=e.root.position;UpdateLoot(0);Check(RunShards==3&&Shards==0,"unbanked pickup");
+                Check(Kills==1&&!e.root.gameObject.activeSelf&&EarnedExperience==xp,"no XP on monster death");
+                Player.position=e.root.position;UpdateLoot(0);Check(RunShards==3&&Shards==0&&EarnedExperience>xp,"amber pickup grants XP and shards");
                 int permanentLevel=BaseLevel;AwardRunExperience(200);Check(RunLevel>1&&BaseLevel==permanentLevel&&Drafting,"separate run progression");
                 while(Drafting)ApplyPerk(ActiveDraft[0]);
                 foreach(var p in CombatRules.AllPerks)if(p.Kind!=CombatRules.PerkKind.BattleFocus)perkRanks[p.Kind]=RankCap(p.Kind);

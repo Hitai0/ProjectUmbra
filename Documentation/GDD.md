@@ -1,4 +1,4 @@
-# Project Umbra — refined playable design, v0.2.0
+# Project Umbra — refined playable design, v0.2.1
 
 This replaces the earlier MMO and open-ended horde assumptions. The current target is a **single-player** 15-minute action roguelite. The supplied refined plan v2 is the reference; the decisions below describe the implemented slice, not future promises.
 
@@ -6,7 +6,7 @@ This replaces the earlier MMO and open-ended horde assumptions. The current targ
 
 Permanent Base Level preserves RO-style identity: each level grants 3 points in STR / AGI / VIT / INT / DEX / LUK. Allocation and unlimited free reset happen at camp. There is no Job XP and no Zeny. Amber buys five camp-supply ranks (+5 HP each; 60/120/180/240/300 amber).
 
-Run Level resets each expedition and drives boon drafts, starting with a free opening choice. Separating it from Base Level keeps draft cadence the same for veterans and new characters. Run XP thresholds are 45 + 25 × (run level − 1). Regular enemies grant 10 run XP / 5 permanent XP; elites grant 30 / 15. XP earned in a run and collected amber settle once on victory, defeat, timeout or voluntary return. Closing the application before settlement forfeits that run's unbanked rewards.
+Run Level resets each expedition and drives boon drafts, starting with a free opening choice. Separating it from Base Level keeps draft cadence the same for veterans and new characters. Run XP thresholds are 45 + 25 × (run level − 1). Regular enemies drop amber yielding 10 run XP / 5 permanent XP and 3 amber upon collection; elites drop amber yielding 30 / 15 and 9 amber. Killing monsters does not directly grant XP—XP is acquired exclusively by collecting amber shards. XP earned in a run and collected amber settle once on victory, defeat, timeout or voluntary return. Closing the application before settlement forfeits that run's unbanked rewards.
 
 Base XP thresholds remain 60 + 35 × (level − 1) to preserve existing saves. Base Level caps at 99; each stat caps at 99. Invalid legacy allocations exceeding earned points are refunded rather than retained.
 

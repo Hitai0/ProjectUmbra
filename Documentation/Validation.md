@@ -1,10 +1,10 @@
-# Validation — v0.2.0
+# Validation — v0.2.1
 
 Validated 2026-09-24 on Windows with Unity 6000.3.24f1, URP and the new Input System.
 
 ## Runtime integration
 
-138 assertions passed: 38 progression/combat/lifecycle checks plus 100 safe-spawn samples. Coverage includes camp allocation and respec; locked in-run stats; opening draft and menu pause; rejecting repeated draft claims; separate permanent/run XP; capped draft fallback; damage, death and pickup; heal/nova cooldowns; hit grace; reward settlement exactly once; all three guardian timings and victories; arena boundaries; 15-minute timeout; supply purchases; all four class attacks; crit/CDR caps. Test save writes are suppressed and the original local profile is restored.
+138 assertions passed: 38 progression/combat/lifecycle checks plus 100 safe-spawn samples. Coverage includes camp allocation and respec; locked in-run stats; opening draft and menu pause; rejecting repeated draft claims; separate permanent/run XP; capped draft fallback; damage, death and pickup (XP granted exclusively on amber pickup, not on kill); heal/nova cooldowns; hit grace; reward settlement exactly once; all three guardian timings and victories; arena boundaries; 15-minute timeout; supply purchases; all four class attacks; crit/CDR caps. Test save writes are suppressed and the original local profile is restored.
 
 Unity visual inspection covered camp, opening draft, ordinary combat and the guardian arena with projectile/ground attacks. A vertex-colour rendering issue discovered during inspection was corrected for telegraph rings.
 

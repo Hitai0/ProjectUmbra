@@ -11,7 +11,7 @@ namespace Umbra
 {
     public sealed partial class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.2.0";
+        public const string Version = "0.2.1";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
@@ -74,7 +74,7 @@ namespace Umbra
             public bool isCrit;
             public HashSet<Enemy> hit = new();
         }
-        sealed class Loot { public Transform root; public float phase; }
+        sealed class Loot { public Transform root; public float phase; public int shards, exp; }
         sealed class FloatText { public Vector3 point; public string text; public Color color; public float until; }
         sealed class Ring { public LineRenderer line; public Vector3 center; public float born, lifetime, radius; public Color color; }
 
@@ -737,12 +737,12 @@ namespace Umbra
             e.hp=0;
             e.root.gameObject.SetActive(false);e.windupUntil=0;Kills++;
             if(e.boss){FinishRun(true,"The guardian has fallen");return;}
-            AwardRunExperience(e.elite?30:10);
+
             if(HasMushroomCard) Health=Mathf.Min(MaxHealth,Health+1);
             if(SelectedMap>0) AddHazard(e.root.position,SelectedMap==1?1.5f:2.2f,SelectedMap==1?1f:1.5f,SelectedMap==1?4f:.35f,SelectedMap==1?8:24);
 
             var item=Shape("Amber shard",PrimitiveType.Cube,e.root.position+Vector3.up*.35f,Vector3.one*.22f,Mat("loot amber",new(1.6f,.8f,.19f),true),transform);
-            loot.Add(new Loot{root=item.transform,phase=Random.value*5});
+            loot.Add(new Loot{root=item.transform,phase=Random.value*5,shards=e.elite?9:3,exp=e.elite?30:10});
         }
         public void TriggerLevelUp()
         {
@@ -790,7 +790,7 @@ namespace Umbra
                     p = Vector3.MoveTowards(p, target, dt * (12f + (PickupRadius - dist) * 4f));
                 }
                 l.root.position=p;
-                if(dist<1.35f){RunShards+=3;Collected++;Popup(Player.position+Vector3.up,"+3 amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
+                if(dist<1.35f){int s=l.shards>0?l.shards:3;int x=l.exp>0?l.exp:10;RunShards+=s;AwardRunExperience(x);Collected++;Popup(Player.position+Vector3.up,"+"+s+" amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
             }
         }
         public void Notify(string message){Notice=message;NoticeUntil=Time.unscaledTime+4;}
