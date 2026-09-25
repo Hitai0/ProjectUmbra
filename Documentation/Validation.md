@@ -58,3 +58,27 @@ Real mouse/touch click-through interaction and visual overlay behavior were not 
 ## Game speed - 2026-09-25
 
 Unity compilation and smoke suite passed (235 assertions). Added checks cover each speed, draft/stats/pause overrides, changing speed while paused, and restoring the selected speed on resume. Save writes remain suppressed in tests. UI placement and saved preference reload were not manually exercised. No WebGL rebuild or full-run speed/performance test was performed.
+
+## Monster attack & damage pipeline pass - 2026-09-25
+
+Unity compilation and fresh Play Mode smoke suite passed (264 assertions, +29 from previous 235).
+
+Added test coverage:
+1. **Pure formulas**: Verified `DamageRules.Incoming(raw, armor, reduction)` against baseline tests (10, 0, 0 => 10; 10, 3, 0 => 7; 10, 3, .20 => 6; 3, 5, .20 => 1; 0 => 0; negative => 0; negative armor/reduction clamped safely).
+2. **Contact geometry**: Exact circle-circle overlap on boundary, within boundary, and strictly outside boundary; verified elevation invariance (XZ plane only).
+3. **Protection deadlines**: Verified 3 independent protection deadlines (`hitGraceUntil`, `dashImmuneUntil`, `spawnImmuneUntil`); verified that dashing during spawn immunity extends dash timer via `Mathf.Max` without truncating spawn protection.
+4. **Modal & phase damage rejection**: Verified incoming hits are rejected outside `RunPhase.Running` and during active modals (`Drafting`, `Paused`, `RunePanel`, `HelpPanel`, `StatsPanel`).
+5. **Frame damage queue & single-hit resolution**: Verified 21 candidate damage requests (20 common hits + 1 boss hit) are collected without frame-time health pileup, and resolved into exactly one strongest mitigated hit (`applied = 40`), leaving the player at 60 HP.
+6. **Deterministic winner**: Verified candidate shuffle produces identical results tiebroken by monotonic `SourceId`.
+7. **Armor boon (Iron Bark)**: Verified rank cap 5, `PlayerArmor` reading directly from `Rank(IronBark)`, and incoming mitigation reductions.
+8. **Swept segment collision**: Verified fast hostile projectile swept segment detection piercing through player in 1 frame, and verified distant non-intersecting trajectory segments do not register false hits.
+9. **Backward compatibility**: All legacy assertions (progression gates, camp allocation, safe spawns, opening horde batch, 2-minute champion, amber-only XP, guardian boss schedules, class attacks, stat caps) continue to pass.
+
+Scope limits:
+- WebGL was not rebuilt.
+- Swarm pressure balance and tactile feel at 2x simulation speed need manual playtesting.
+
+## Game speed expansion (3x, 4x) - 2026-09-25
+
+Unity compilation and smoke suite passed (276 assertions, +12 from previous 264). Added speeds 3x and 4x to `AvailableGameSpeeds` (`1x, 1.5x, 2x, 3x, 4x`). Verified simulation scaling, draft/modal/pause overrides, cycling while paused, and resume restoration across all 5 speed settings.
+

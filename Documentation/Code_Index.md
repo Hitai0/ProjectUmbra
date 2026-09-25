@@ -10,12 +10,17 @@
 
 | File Path | Type / Namespace | Primary Responsibility | LOC |
 |---|---|---|---|
-| [`CombatRules.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/CombatRules.cs) | `public static class CombatRules` (`Umbra`) | Pure balance formulas, stat calculations, perk & rune definitions. No state. | ~114 |
-| [`UmbraPrototype.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraPrototype.cs) | `public partial class UmbraPrototype : MonoBehaviour` (`Umbra`) | Core loop, player movement, world gen, combat actions, amber drops, Level-Up FX, mobile touch. | ~1,144 |
-| [`UmbraCampaign.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaign.cs) | `public partial class UmbraPrototype` (`Umbra`) | Run lifecycle, draft generation, guardian bosses, hazards, procedural tone audio, settlement. | ~384 |
-| [`UmbraHud.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraHud.cs) | `public sealed partial class UmbraHud : MonoBehaviour` (`Umbra`) | In-game IMGUI HUD, virtual analog joystick, touch action buttons, boon draft cards, stats/runes. | ~492 |
+| [`CombatRules.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/CombatRules.cs) | `public static class CombatRules` (`Umbra`) | Pure balance formulas, stat calculations, perk & rune definitions. No state. | ~145 |
+| [`DamageTypes.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/DamageTypes.cs) | Structs & Enums (`Umbra`) | Immutable `DamageRequest`, `DamageResult`, `DamageSourceKind`, `DamageRejectReason`. No engine dependencies. | ~60 |
+| [`DamageRules.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/DamageRules.cs) | `public static class DamageRules` (`Umbra`) | Pure incoming damage formula, contact intervals/radii, and overlap testing. | ~40 |
+| [`UmbraDamage.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraDamage.cs) | `public partial class UmbraPrototype` (`Umbra`) | Unified incoming damage queue, resolution gateway, Armor/reduction, protection deadlines, `HurtPlayer` adapter. | ~168 |
+| [`UmbraMonsterCombat.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraMonsterCombat.cs) | `public partial class UmbraPrototype` (`Umbra`) | Contact profile configuration, continuous contact attack checks and damage offering. | ~29 |
+| [`UmbraPrototype.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraPrototype.cs) | `public partial class UmbraPrototype : MonoBehaviour` (`Umbra`) | Core loop, player movement, world gen, combat actions, amber drops, Level-Up FX, mobile touch. | ~1,180 |
+| [`UmbraCampaign.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaign.cs) | `public partial class UmbraPrototype` (`Umbra`) | Run lifecycle, draft generation, guardian bosses, swept projectile/hazard offers, settlement. | ~440 |
+| [`UmbraHud.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraHud.cs) | `public sealed partial class UmbraHud : MonoBehaviour` (`Umbra`) | In-game IMGUI HUD, virtual analog joystick, touch action buttons, boon draft cards, stats/runes/armor. | ~495 |
 | [`UmbraCampHud.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampHud.cs) | `public sealed partial class UmbraHud` (`Umbra`) | Camp screen UI, stat allocations, map/class selection, expedition results screen. | ~78 |
-| [`UmbraCampaignTests.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaignTests.cs) | `public partial class UmbraPrototype` (`Umbra`) | 141+ automated smoke tests verifying formulas, transitions, mobile controls, and combat rules. | ~115 |
+| [`UmbraCampaignTests.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraCampaignTests.cs) | `public partial class UmbraPrototype` (`Umbra`) | Automated smoke suite (264 assertions) verifying formulas, transitions, mobile controls, and combat rules. | ~195 |
+| [`UmbraDamageTests.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Runtime/UmbraDamageTests.cs) | `public partial class UmbraPrototype` (`Umbra`) | Unit & acceptance tests for pure damage formula, contact geometry, protection timers, 21-candidate frame resolution. | ~125 |
 | [`UmbraProjectSetup.cs`](file:///d:/ProjectUmbra/ProjectUmbra/Assets/Umbra/Editor/UmbraProjectSetup.cs) | `public static class UmbraProjectSetup` (`Umbra.Editor`) | Unity Editor automation, command watcher (`.umbra-command`), URP setup, WebGL builds. | ~234 |
 
 ---
@@ -28,7 +33,7 @@
 #### Types & Enums
 - `enum RuneKind { Pierce, Scatter, Ember }`
 - `enum StatKind { STR, AGI, VIT, INT, DEX, LUK }`
-- `enum PerkKind { RunePierce, RuneScatter, RuneEmber, RapidFire, SwiftBoots, Multishot, Vitality, Magnetism, WindNovaPulse, Chain, Ignite, SproutCard, MushroomCard, BattleFocus }`
+- `enum PerkKind { RunePierce, RuneScatter, RuneEmber, RapidFire, SwiftBoots, Multishot, Vitality, Magnetism, WindNovaPulse, Chain, Ignite, SproutCard, MushroomCard, BattleFocus, IronBark }`
 - `sealed class Perk { PerkKind Kind; string Title; string Category; string Description; string Rarity; }`
 
 #### Constants
@@ -52,6 +57,51 @@
 - `RunExperienceToLevel(int level) -> int`: EXP needed for mid-run level-up draft (`140 + 60n + 8n²; n = level - 1`).
 - `RuneName(RuneKind rune) -> string` / `RuneDescription(RuneKind rune) -> string`: Localized display texts.
 - `RollPerks(int count = 3, int luk = 1) -> List<Perk>`: Randomly rolls unweighted draft boons from `AllPerks`.
+
+---
+
+### 📄 `DamageTypes.cs`
+**Namespace**: `Umbra` | **Data Contracts & Enums**
+- `enum DamageSourceKind { Contact, Projectile, Hazard, Legacy }`
+- `enum DamageRejectReason { None, Invalid, InactiveRun, Immune, StaleSource }`
+- `readonly struct DamageRequest`: Immutable frame candidate containing `RawDamage`, `Kind`, `SourceId`, `EnemyIndex`, `SpawnGeneration`.
+- `readonly struct DamageResult`: Outcome containing `RequestedDamage`, `MitigatedDamage`, `AppliedDamage`, `Rejected` reason, and `Applied` bool.
+
+---
+
+### 📄 `DamageRules.cs`
+**Namespace**: `Umbra` | **Class**: `DamageRules` (Pure Static Math & Hitbox Geometry)
+- **Constants**: `HitGrace` (0.35s), `ContactInterval` (0.60s), `PlayerRadius` (0.45m), `CommonRadius` (0.55m), `EliteRadius` (0.75m), `ChampionRadius` (0.90m), `CommonBaseContact` (10), `EliteBaseContact` (20), `ChampionBaseContact` (24).
+- `ContactDamage(bool isChampion, bool isElite, int mapIndex, float runSeconds) -> int`: Scaled base contact damage formula.
+- `Incoming(int raw, int armor, float reduction) -> int`: Pure damage mitigation: `afterArmor = max(1, raw - max(0, armor))`, then `max(1, ceil(afterArmor * (1 - clamp(reduction, 0, .8))))`. Clamps negative/invalid inputs safely.
+- `Touching(Vector3 a, Vector3 b, float enemyRadius) -> bool`: Horizontal XZ circle-circle overlap test (`(dx² + dz²) <= (PlayerRadius + enemyRadius)²`).
+
+---
+
+### 📄 `UmbraDamage.cs`
+**Namespace**: `Umbra` | **Class**: `public sealed partial class UmbraPrototype` (Incoming Damage Gateway)
+- **Properties**: `PlayerArmor => Rank(PerkKind.IronBark)`, `PlayerReduction => Class == HeroClass.Swordsman ? 0.20f : 0f`.
+- **Protection Fields**: `hitGraceUntil`, `dashImmuneUntil`, `spawnImmuneUntil`, and backwards-compatible composite property `invulnerableUntil`.
+- `AllocDamageSourceId() -> ulong`: Allocates monotonically increasing IDs per run for deterministic candidate sorting.
+- `IsPlayerProtected(float now) -> bool`: Checks whether `now < max(hitGraceUntil, dashImmuneUntil, spawnImmuneUntil)`.
+- `BeginIncomingFrame()`: Clears incoming frame queue and opens candidate collection.
+- `ClearIncomingDamage()`: Flushes incoming queue and resets collection flag on lifecycle transitions.
+- `OfferPlayerDamage(in DamageRequest request) -> bool`: Validates phase, modals, and non-positive damage, then inserts candidate into 256-slot queue (replaces weakest candidate if full).
+- `ResolveIncomingDamage(float now) -> DamageResult`: Selects the single strongest mitigated hit in the frame (tiebreaker: lower `SourceId`), commits damage to `Health`, applies `hitGraceUntil`, commits contact cooldown to the attacking monster, triggers SFX/popup, and checks defeat.
+- `HurtPlayer(int damage)`: Backward-compatibility adapter routing external/legacy damage into the pipeline.
+
+---
+
+### 📄 `UmbraMonsterCombat.cs`
+**Namespace**: `Umbra` | **Class**: `public sealed partial class UmbraPrototype` (Contact Combat)
+- `ConfigureContactProfile(Enemy e, bool champion)`: Sets `damageSourceId`, increments `spawnGeneration`, configures `contactRadius` and `contactDamage`, resets `nextContactAt = now` and clears `windupUntil`.
+- `TryContactAttack(Enemy e, int index, float now) -> bool`: Checks live state, cooldown deadline, and horizontal overlap with player; offers a `DamageRequest` if valid.
+
+---
+
+### 📄 `UmbraDamageTests.cs`
+**Namespace**: `Umbra` | **Class**: `public sealed partial class UmbraPrototype` (Damage Test Suite)
+- `RunDamageUnitAndAcceptanceTests(Action<bool, string> check)`: Full acceptance test covering pure formulas, hitbox geometry, elevation invariance, 3 independent protection timers, modal damage rejection, multi-candidate single-frame resolution (21 candidates, 1 winner), shuffled candidate order determinism, `IronBark` rank cap and armor values, and swept-segment projectile hit/miss tests.
 
 ---
 
@@ -123,7 +173,7 @@
 - `RerollDraft()`: Rerolls active draft cards if `Rerolls > 0`.
 - `SelectMap(int map)` / `SelectClass(HeroClass kind)`: Switches active route or hero class in camp.
 - `BuySupplies()`: Spends collected amber at camp to increase max HP rank.
-- `CycleGameSpeed()` / `GameSpeed` / `GameSpeedLabel`: Cycle and persist 1x/1.5x/2x; `SyncPause` applies the selected speed only during unobstructed gameplay.
+- `CycleGameSpeed()` / `GameSpeed` / `GameSpeedLabel`: Cycle and persist 1x/1.5x/2x/3x/4x; `SyncPause` applies the selected speed only during unobstructed gameplay.
 - `ToggleSound()` / `ToggleFocus()` / `TogglePause()`: Player settings toggles.
 - `UpdateRunDirector(float dt)`: Controls monster wave pacing, elites, and triggers the boss at 14:00 (840s).
 - `InSpawnView` / `TrySpawnPosition`: Camera-aware offscreen placement, ground bounds, player clearance and actor spacing.
@@ -247,3 +297,10 @@ User preference: keep investigation and verification proportional to the request
 4. Make the smallest complete fix. Avoid unrelated refactoring, speculative improvements, or new tests that merely duplicate implementation details.
 5. Run required checks and focused tests appropriate to the affected behavior. Broaden or repeat testing only after new changes, failures, or unresolved concerns justify it. Do not rebuild WebGL for a source-only fix unless requested or needed to verify the issue.
 6. Report the result, checks performed, and any remaining verification limits briefly. Do not claim that account-wide quota changes can be attributed precisely to one task.
+
+## Implemented Combat & Damage Pipeline (v0.2.5)
+
+- [Monster Attack Implementation Plan](Monster_Attack_Implementation_Plan.md): Completed implementation specification for contact attacks, damage queue, flat Armor, and separate protection deadlines.
+- [Monster Attack Code and Structure Guide](Monster_Attack_Code_Guide.md): Reference contracts for `DamageTypes.cs`, `DamageRules.cs`, frame ordering, and backward compatibility.
+- Implemented files: `DamageTypes.cs`, `DamageRules.cs`, `UmbraDamage.cs`, `UmbraMonsterCombat.cs`, `UmbraDamageTests.cs`. All 264 smoke assertions passing.
+

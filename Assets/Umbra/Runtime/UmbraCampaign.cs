@@ -54,13 +54,14 @@ namespace Umbra
             * (1 + Rank(CombatRules.PerkKind.BattleFocus) * .08f)
             * (Class == HeroClass.Mage ? 1.25f + (INT - 1) * .01f : Class == HeroClass.Swordsman ? 1.4f : 1f));
         public bool Muted { get; private set; }
+        public static readonly float[] AvailableGameSpeeds = { 1f, 1.5f, 2f, 3f, 4f };
         int gameSpeedIndex;
-        public float GameSpeed => gameSpeedIndex==1?1.5f:gameSpeedIndex==2?2f:1f;
-        public string GameSpeedLabel => GameSpeed.ToString("0.#",System.Globalization.CultureInfo.InvariantCulture)+"x";
+        public float GameSpeed => AvailableGameSpeeds[Mathf.Clamp(gameSpeedIndex, 0, AvailableGameSpeeds.Length - 1)];
+        public string GameSpeedLabel => GameSpeed.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "x";
         public void CycleGameSpeed()
         {
-            gameSpeedIndex=(gameSpeedIndex+1)%3;
-            SyncPause();SaveProfile();
+            gameSpeedIndex = (gameSpeedIndex + 1) % AvailableGameSpeeds.Length;
+            SyncPause(); SaveProfile();
         }
         public bool SoftFocus { get; private set; } = true;
         readonly Dictionary<CombatRules.PerkKind,int> perkRanks = new();
@@ -75,8 +76,8 @@ namespace Umbra
         AudioSource audioSource;
         AudioClip[] cues;
         LineRenderer arenaBoundary;
-        sealed class Hazard { public Vector3 point; public float radius, activates, expires, tick; public int damage; public LineRenderer ring; }
-        sealed class HostileShot { public Transform root; public Vector3 velocity; public float expires; }
+        sealed class Hazard { public Vector3 point; public float radius, activates, expires, tick; public int damage; public LineRenderer ring; public ulong damageSourceId; }
+        sealed class HostileShot { public Transform root; public Vector3 velocity; public float expires; public int damage; public ulong damageSourceId; }
         bool HasSproutCard => Rank(CombatRules.PerkKind.SproutCard)>0;
         bool HasMushroomCard => Rank(CombatRules.PerkKind.MushroomCard)>0;
         public int Rank(CombatRules.PerkKind kind) => perkRanks.TryGetValue(kind,out int n)?n:0;
@@ -87,7 +88,7 @@ namespace Umbra
             Class=(HeroClass)Mathf.Clamp(PlayerPrefs.GetInt("Umbra.Class",0),0,3);
             if(!ClassesUnlocked)Class=HeroClass.Novice;
             SupplyRank=Mathf.Clamp(PlayerPrefs.GetInt("Umbra.SupplyRank",0),0,5);
-            gameSpeedIndex=Mathf.Clamp(PlayerPrefs.GetInt("Umbra.GameSpeed",0),0,2);
+            gameSpeedIndex=Mathf.Clamp(PlayerPrefs.GetInt("Umbra.GameSpeed",0),0,AvailableGameSpeeds.Length-1);
             Muted=PlayerPrefs.GetInt("Umbra.Muted",0)!=0;
             SoftFocus=PlayerPrefs.GetInt("Umbra.SoftFocus",1)!=0;
             campRune=Rune;
@@ -135,6 +136,7 @@ namespace Umbra
         public void EnterCamp()
         {
             Phase=RunPhase.Camp;ClearCombat();
+            hitGraceUntil=dashImmuneUntil=spawnImmuneUntil=0;
             Drafting=Paused=RunePanel=StatsPanel=HelpPanel=false;
             MaxHealthBonus=0;Health=MaxHealth;
             Player.position=new(0,0,-2);walkingTo=false;
@@ -144,18 +146,19 @@ namespace Umbra
         public void StartRun()
         {
             if(Phase!=RunPhase.Camp||!MapUnlocked(SelectedMap))return;
-            ClearCombat();campRune=Rune;perkRanks.Clear();
+            ClearCombat();campRune=Rune;perkRanks.Clear();ClearIncomingDamage();
             RunTimer=0;RunLevel=1;RunExperience=EarnedExperience=RunShards=Kills=Collected=pendingDrafts=0;
             MaxHealthBonus=BonusProjectiles=0;AttackSpeedMultiplier=MoveSpeedMultiplier=1;PickupRadius=5;HasNovaPulse=false;
             Health=MaxHealth;regenBank=0;miniSpawned=bossSpawned=false;boss=null;
             Rerolls=1;Won=false;ResultReason="";
-            attackAt=volleyAt=dashAt=healAt=0;dashUntil=0;invulnerableUntil=Time.time+2;nextHordeSpawn=Time.time+.5f;hordeCursor=0;
+            attackAt=volleyAt=dashAt=healAt=0;dashUntil=0;hitGraceUntil=0;dashImmuneUntil=0;spawnImmuneUntil=Time.time+2;nextHordeSpawn=Time.time+.5f;hordeCursor=0;
             Drafting=Paused=RunePanel=StatsPanel=HelpPanel=false;walkingTo=false;
             Player.position=new(0,0,-2);Phase=RunPhase.Running;ApplyMapPalette();
             TriggerLevelUp();Notify("Choose your first boon. Your 15-minute expedition begins.");
         }
         void ClearCombat()
         {
+            ClearIncomingDamage();
             if(arenaBoundary)Destroy(arenaBoundary.gameObject);
             if(activePillar){Destroy(activePillar);activePillar=null;}
             if(activePillarLight){Destroy(activePillarLight.gameObject);activePillarLight=null;}
@@ -190,6 +193,7 @@ namespace Umbra
             CombatRules.PerkKind.RapidFire or CombatRules.PerkKind.Vitality=>4,
             CombatRules.PerkKind.SwiftBoots=>3,
             CombatRules.PerkKind.Multishot or CombatRules.PerkKind.Magnetism=>2,
+            CombatRules.PerkKind.IronBark=>5,
             CombatRules.PerkKind.BattleFocus=>999,
             _=>1
         };
@@ -273,10 +277,10 @@ namespace Umbra
         void SpawnEnemy(Enemy e,Vector3 pos,int hp)
         {
             e.root.position=pos;e.home=pos;e.maxHp=e.hp=hp;e.windupUntil=e.burnUntil=e.flashUntil=0;
-            e.contactDamage=CombatRules.EnemyDamage(e.elite,SelectedMap,RunTimer);
             e.moveSpeed=(e.elite?1.8f:2.15f)*(1+Mathf.Min(.3f,RunTimer/2400f))*(SelectedMap==1?1.4f:1f);
             e.attackAt=Time.time+1;e.boss=false;e.root.gameObject.SetActive(true);
             e.visual.localScale=Vector3.one*(e.elite?1.5f:1);
+            ConfigureContactProfile(e,false);
         }
         void SlideEnemy(Enemy e,Vector3 motion)
         {
@@ -291,16 +295,16 @@ namespace Umbra
             if(RunTimer>=CombatRules.BossTime&&!bossSpawned)SpawnBoss();
             else if(RunTimer>=CombatRules.ChampionArrival&&!miniSpawned)
             {
-                var e=enemies[enemies.Count-1];if(TrySpawnPosition(out Vector3 p)){miniSpawned=true;SpawnEnemy(e,p,900+SelectedMap*350);e.visual.localScale=Vector3.one*2;Notify("CHAMPION AWAKENED  /  Keep your distance");}
+                var e=enemies[enemies.Count-1];if(TrySpawnPosition(out Vector3 p)){miniSpawned=true;SpawnEnemy(e,p,900+SelectedMap*350);e.visual.localScale=Vector3.one*2;ConfigureContactProfile(e,true);Notify("CHAMPION AWAKENED  /  Keep your distance");}
             }
-            UpdateHazards(dt);
         }
         void SpawnBoss()
         {
             bossSpawned=true;
             // The finale retains its bounded central arena and fixed encounter timing.
-            ClearCombat();Player.position=new(0,0,-2);walkingTo=false;invulnerableUntil=Time.time+2;
+            ClearCombat();Player.position=new(0,0,-2);walkingTo=false;spawnImmuneUntil=Mathf.Max(spawnImmuneUntil,Time.time+2);
             boss=enemies[7];SpawnEnemy(boss,new(0,0,5),CombatRules.GuardianHealth(SelectedMap));boss.boss=true;
+            boss.contactDamage=0;boss.contactRadius=0;
             boss.visual.localScale=Vector3.one*2.6f;nextBossAttack=Time.time+2;bossReleaseAt=0;
             var boundary=new GameObject("Guardian arena boundary",typeof(LineRenderer));boundary.transform.SetParent(transform);
             arenaBoundary=boundary.GetComponent<LineRenderer>();arenaBoundary.sharedMaterial=Mat("arena amber",new(1.8f,.6f,.15f),true);arenaBoundary.widthMultiplier=.13f;arenaBoundary.positionCount=5;
@@ -320,7 +324,7 @@ namespace Umbra
                 {
                     var direction=Quaternion.Euler(0,i*360f/count+(RunTimer*7)%45,0)*Vector3.forward;
                     var orb=Shape("Guardian seed",PrimitiveType.Sphere,e.root.position+Vector3.up*.5f,Vector3.one*.28f,Mat("danger",new(2,.35f,.12f),true),transform);
-                    hostileShots.Add(new HostileShot{root=orb.transform,velocity=direction*(SelectedMap==1?5.2f:4.3f),expires=Time.time+6});
+                    hostileShots.Add(new HostileShot{root=orb.transform,velocity=direction*(SelectedMap==1?5.2f:4.3f),expires=Time.time+6,damage=26+SelectedMap*7,damageSourceId=AllocDamageSourceId()});
                 }
             }
             if(Time.time>=nextBossAttack)
@@ -338,7 +342,7 @@ namespace Umbra
             var go=new GameObject("Danger telegraph",typeof(LineRenderer));go.transform.SetParent(transform);
             var line=go.GetComponent<LineRenderer>();line.sharedMaterial=RingMaterial();line.startColor=line.endColor=new Color(1,.75f,.2f);line.widthMultiplier=.10f;line.positionCount=49;
             for(int i=0;i<49;i++){float a=i*Mathf.PI*2/48;line.SetPosition(i,point+new Vector3(Mathf.Cos(a)*radius,.06f,Mathf.Sin(a)*radius));}
-            hazards.Add(new Hazard{point=point,radius=radius,activates=Time.time+delay,expires=Time.time+delay+duration,damage=damage,ring=line});
+            hazards.Add(new Hazard{point=point,radius=radius,activates=Time.time+delay,expires=Time.time+delay+duration,damage=damage,ring=line,damageSourceId=AllocDamageSourceId()});
         }
         void UpdateHazards(float dt)
         {
@@ -346,13 +350,25 @@ namespace Umbra
             {
                 var h=hazards[i];if(Time.time>h.expires){Destroy(h.ring.gameObject);hazards.RemoveAt(i);continue;}
                 bool active=Time.time>=h.activates;h.ring.startColor=h.ring.endColor=active?new Color(1,.2f,.12f):new Color(1,.75f,.2f);
-                if(active&&Time.time>=h.tick){h.tick=Time.time+.7f;if(Vector3.Distance(Player.position,h.point)<h.radius)HurtPlayer(h.damage);}
+                if(active&&Time.time>=h.tick)
+                {
+                    h.tick=Time.time+.7f;
+                    Vector3 delta=Player.position-h.point;delta.y=0;
+                    if(delta.magnitude<h.radius)OfferPlayerDamage(new DamageRequest(h.damage,DamageSourceKind.Hazard,h.damageSourceId));
+                }
             }
             for(int i=hostileShots.Count-1;i>=0;i--)
             {
-                var s=hostileShots[i];s.root.position+=s.velocity*dt;Vector3 delta=s.root.position-Player.position;delta.y=0;
-                bool hit=delta.sqrMagnitude<.45f;
-                if(hit)HurtPlayer(26+SelectedMap*7);
+                var s=hostileShots[i];
+                Vector3 p0=s.root.position;
+                Vector3 p1=p0+s.velocity*dt;
+                s.root.position=p1;
+                Vector2 segA=new(p0.x,p0.z),segB=new(p1.x,p1.z),ply=new(Player.position.x,Player.position.z);
+                Vector2 ab=segB-segA;float abSqr=ab.sqrMagnitude;
+                float t=abSqr>0.0001f?Mathf.Clamp01(Vector2.Dot(ply-segA,ab)/abSqr):0f;
+                Vector2 closest=segA+t*ab;
+                bool hit=(ply-closest).sqrMagnitude<.45f;
+                if(hit)OfferPlayerDamage(new DamageRequest(s.damage,DamageSourceKind.Projectile,s.damageSourceId));
                 if(hit||Time.time>s.expires){Destroy(s.root.gameObject);hostileShots.RemoveAt(i);}
             }
         }

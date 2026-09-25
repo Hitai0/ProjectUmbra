@@ -92,7 +92,8 @@ namespace Umbra
             Ignite,
             SproutCard,
             MushroomCard,
-            BattleFocus
+            BattleFocus,
+            IronBark
         }
 
         public sealed class Perk
@@ -123,7 +124,8 @@ namespace Umbra
             new(PerkKind.Ignite, "Kindling", "SHARED SUPPORT", "Hits burn for 30% damage over 3 seconds. Refreshes; does not stack.", "RARE"),
             new(PerkKind.SproutCard, "Sprout Card", "MONSTER CARD", "+1 projectile pierce. Swordsman gains +0.4m slash reach instead.", "RARE"),
             new(PerkKind.MushroomCard, "Mushroom Card", "MONSTER CARD", "Defeating an enemy restores 1 HP.", "RARE"),
-            new(PerkKind.BattleFocus, "Battle Focus", "STAT BOON", "+8% damage this run. Always available.", "COMMON")
+            new(PerkKind.BattleFocus, "Battle Focus", "STAT BOON", "+8% damage this run. Always available.", "COMMON"),
+            new(PerkKind.IronBark, "Iron Bark", "SURVIVAL BOON", "+1 Armor (reduces incoming damage). Up to 5 ranks.", "COMMON")
         };
 
         public static System.Collections.Generic.List<Perk> RollPerks(int count = 3, int luk = 1)

@@ -1,4 +1,4 @@
-# Project Umbra — refined playable design, v0.2.4
+# Project Umbra — refined playable design, v0.2.5
 
 This replaces the earlier MMO and open-ended horde assumptions. The current target is a **single-player** 15-minute action roguelite. The supplied refined plan v2 is the reference; the decisions below describe the implemented slice, not future promises.
 
@@ -22,7 +22,22 @@ Base XP thresholds remain 60 + 35 × (level − 1) to preserve existing saves. B
 
 The 72-actor pool supports up to 64 ordinary enemies plus a reserved champion. Minute wave rows set population, batch size, interval and elite budget. Refill ticks run twice as fast below half the target but retain a bounded batch. First tick is due 0.5s after the opening draft. HP = 65/240 × (1 + map index × .5 + elapsed/480); champion HP = 900 + map index × 350. Safe-position failures retry on later ticks. Enemy HP, contact damage and speed are fixed at spawn.
 
-Common/elite contact damage = 16/30 × (1 + map index × .3 + elapsed/1200), with 0.5s windup and 1s recovery. Movement speed = 2.15/1.8, increasing up to 30% over time; Mire retains its ×1.4 modifier. Hit grace remains 0.55s.
+### Monster Contact & Incoming Damage Pipeline (v0.2.5)
+
+Hordes apply continuous contact pressure without normal windup pauses or warning circles for common, elite, and champion enemies (boss telegraphs are preserved):
+- **Hitbox Radii (XZ plane)**: Player 0.45m; Common 0.55m; Elite 0.75m; Champion 0.90m. Overlap occurs when horizontal distance squared <= (PlayerRadius + EnemyRadius)². Enemies pursue and stop at `0.8 * sum(radii)` to maintain contact pressure.
+- **Contact Damage**: Base 10 (common), 20 (elite), 24 (champion), scaled by `RoundToInt(base * (1 + mapIndex * .3 + elapsed / 1200))`. Successful contact commits a 0.60s individual monster cooldown.
+- **Unified Incoming Frame Gateway**: All incoming damage candidates (contact, projectile, hazard) are collected into a pre-allocated 256-entry frame queue. At the end of the frame, `ResolveIncomingDamage` picks exactly **one strongest mitigated hit** (tiebreaker: lower monotonic `SourceId`), preventing simultaneous damage deletion from swarms.
+- **Mitigation Formula**:
+  - `afterArmor = max(1, raw - max(0, armor))`
+  - `finalDamage = max(1, ceil(afterArmor * (1 - clamp(reduction, 0, .8))))`
+  - `actualLost = min(HP, finalDamage)`
+- **Run Boon: Iron Bark**: New draftable perk (+1 Armor per rank, cap 5) offering flat incoming reduction before Swordsman class reduction (20%).
+- **Independent Protection Timers**:
+  - `hitGraceUntil` (0.35s global grace triggered on taking damage)
+  - `dashImmuneUntil` (0.28s dash invulnerability; Max extension)
+  - `spawnImmuneUntil` (2.0s protection on expedition and boss arena entry; Dash never shortens this window)
+- **Swept Projectile Collision**: Hostile shots check closest point on swept trajectory segment to prevent tunneling at high game speeds.
 
 This pass uses continuous horde pressure and escalating survival decisions as inspiration from [Vampire Survivors](https://poncle.games/vampire-survivors), not its exact numeric formulas. The free opening boon remains; the next draft requires 14 common amber pickups instead of 5. Later thresholds grow quadratically. Permanent XP and amber per pickup stay unchanged, so increased kills can accelerate permanent earnings. Actual draft cadence and difficulty need playtesting.
 
@@ -54,9 +69,9 @@ Cards are run-draft rewards in this slice, not persistent monster-drop inventory
 - Damage: rune base 23 (Split Shot 12) + min(30, Base Level − 1), multiplied by 1 + .02 × (STR−1) + .015 × (DEX−1).
 - AGI: +1.5% attack rate and +.4% movement per point above 1. VIT: +8 HP and +.08 HP/s. Fractional regeneration accumulates correctly.
 - INT: −1.2% cooldown per point above 1, capped at 50%. DEX: +2% projectile speed. LUK: base 5% crit +.5% per point above 1, capped at 65%; crit multiplier 1.75.
-- Quickdraw +15% rate, max 4; Stride +8% move, max 3; Twin Flight +1 projectile, max 2; Roots +20 HP/heal 30, max 4; Attraction +2m pickup, max 2. Unique supports/cards cannot be drafted twice.
+- Quickdraw +15% rate, max 4; Stride +8% move, max 3; Twin Flight +1 projectile, max 2; Roots +20 HP/heal 30, max 4; Attraction +2m pickup, max 2; Iron Bark +1 Armor, max 5. Unique supports/cards cannot be drafted twice.
 - Rare/epic draft weight starts at .4 versus common 1, increasing by .01 per LUK above 1, capped at 1. One free reroll per expedition. Battle Focus (+8% run damage) remains as the non-empty fallback when capped upgrades are exhausted.
-- .55s grace after a hit prevents stacked enemies or overlapping hazards from deleting all HP in one frame. Dodge grants .28s immunity. No automatic full heal on every level.
+- .35s grace after a hit prevents stacked enemies or overlapping hazards from deleting all HP in one frame. Dodge grants .28s immunity. Expedition/boss-entry grants 2.0s protection. Independent protection deadlines prevent dash from truncating spawn protection. No automatic full heal on every level.
 
 ## Three routes on one reusable world
 
@@ -90,4 +105,4 @@ Next art/content pass: bespoke class sprites, richer music/SFX, additional enemy
 
 ## Game speed
 
-Camp and Pause provide a cycling SPEED button: 1x, 1.5x, 2x. The selection is saved locally. The combat HUD timer shows the selected speed. Game speed scales simulation time, including movement, attacks, cooldowns, spawns, hazards and the expedition clock; a 15-minute run takes approximately 7.5 real minutes at 2x, excluding pauses. Camp, results and every modal still pause simulation. Closing a modal restores the selected speed. UI animations using unscaled time and sound pitch are unchanged.
+Camp and Pause provide a cycling SPEED button: 1x, 1.5x, 2x, 3x, 4x. The selection is saved locally. The combat HUD timer shows the selected speed. Game speed scales simulation time, including movement, attacks, cooldowns, spawns, hazards and the expedition clock; a 15-minute run takes approximately 7.5 real minutes at 2x, 5 minutes at 3x, or 3.75 minutes at 4x, excluding pauses. Camp, results and every modal still pause simulation. Closing a modal restores the selected speed. UI animations using unscaled time and sound pitch are unchanged.

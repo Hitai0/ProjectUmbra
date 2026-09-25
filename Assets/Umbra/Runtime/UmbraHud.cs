@@ -479,14 +479,14 @@ namespace Umbra
             }
             if(Button(new(945,589,246,34),"BACK TO THE GROVE  [TAB]"))Game.RunePanel=false;
             Label(409,584,"ATK "+Game.AttackDamage+"  /  SPEED "+Game.AttackSpeedMultiplier.ToString("0.00")+"x  /  EXTRA SHOTS "+Game.BonusProjectiles,small,muted);
-            Label(409,609,"Chain "+Game.Rank(CombatRules.PerkKind.Chain)+"  /  Ignite "+Game.Rank(CombatRules.PerkKind.Ignite)+"  /  Sprout "+Game.Rank(CombatRules.PerkKind.SproutCard)+"  /  Mushroom "+Game.Rank(CombatRules.PerkKind.MushroomCard),small,muted);
+            Label(409,609,"Armor "+Game.PlayerArmor+"  /  Chain "+Game.Rank(CombatRules.PerkKind.Chain)+"  /  Ignite "+Game.Rank(CombatRules.PerkKind.Ignite)+"  /  Sprout "+Game.Rank(CombatRules.PerkKind.SproutCard)+"  /  Mushroom "+Game.Rank(CombatRules.PerkKind.MushroomCard),small,muted);
         }
         void DrawStats()
         {
             Box(Backdrop,new Color(0,0,0,.72f));
             Panel(new(460,130,680,640));
             Label(570,155,"C H A R A C T E R   S T A T U S",title,gold);
-            Label(525,205,Game.Class+"  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)",text,cream);
+            Label(525,205,Game.Class+"  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)" + (Game.PlayerArmor > 0 ? "  •  ARMOR: " + Game.PlayerArmor : ""),text,cream);
 
             // Points Banner
             Panel(new(490,240,620,48));

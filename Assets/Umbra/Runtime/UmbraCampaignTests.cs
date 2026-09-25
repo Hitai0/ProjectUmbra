@@ -71,7 +71,7 @@ namespace Umbra
                 }
                 finally{blockerCollider.enabled=false;Destroy(blocker);}
                 StartRun();Check(Drafting&&Time.timeScale==0&&RunTimer==0,"opening draft freezes timer");
-                for(int speed=0;speed<3;speed++)
+                for(int speed=0;speed<AvailableGameSpeeds.Length;speed++)
                 {
                     gameSpeedIndex=speed;SyncPause();Check(Time.timeScale==0,"draft pauses speed "+GameSpeedLabel);
                     Drafting=false;SyncPause();Check(Mathf.Approximately(Time.timeScale,GameSpeed),"running applies speed "+GameSpeedLabel);
@@ -159,6 +159,7 @@ namespace Umbra
                 Health=MaxHealth;invulnerableUntil=0;HurtPlayer(10);int hp=Health;HurtPlayer(10);Check(Health==hp,"hit grace prevents damage pileup");
                 invulnerableUntil=0;Health=1;int bank=Shards;HurtPlayer(2);Check(Phase==RunPhase.Results&&!Won&&Health==0&&Shards==bank+RunShards,"real defeat banks collected rewards");
                 bank=Shards;FinishRun(false,"duplicate");Check(Shards==bank,"reward settlement is idempotent");
+                RunDamageUnitAndAcceptanceTests(Check);
                 EnterCamp();ClearedMaps=7;
                 for(int map=0;map<3;map++)
                 {

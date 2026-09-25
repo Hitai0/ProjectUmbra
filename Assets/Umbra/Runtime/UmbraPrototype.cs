@@ -60,7 +60,6 @@ namespace Umbra
         public float DashRemaining => Mathf.Max(0, dashAt - Time.time);
         public float HealRemaining => Mathf.Max(0, healAt - Time.time);
         public IReadOnlyList<Enemy> Enemies => enemies;
-
         public sealed class Enemy
         {
             public Transform root, visual;
@@ -72,6 +71,11 @@ namespace Umbra
             public float attackAt, windupUntil, respawnAt, flashUntil, phase;
             public bool elite, boss;
             public float burnUntil, burnTick; public int burnDamage;
+            public float nextContactAt;
+            public float contactRadius;
+            public ulong damageSourceId;
+            public uint spawnGeneration;
+            public bool isChampion;
         }
         sealed class Shot
         {
@@ -105,7 +109,7 @@ namespace Umbra
         Sprite sproutSprite, mushroomSprite;
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
         bool walkingTo;
-        float attackAt, volleyAt, dashAt, healAt, invulnerableUntil, dashUntil, lastHitAt, elapsed;
+        float attackAt, volleyAt, dashAt, healAt, dashUntil, lastHitAt, elapsed;
         internal const int GroundPointerLayer = 8, BlockerPointerLayer = 9;
         // UI is handled before physics; triggers and Ignore Raycast are not world click blockers.
         [SerializeField] LayerMask pointerMask = Physics.DefaultRaycastLayers & ~(1 << 5);
@@ -719,10 +723,12 @@ namespace Umbra
                 }
             }
             SyncPause();
-            if(Phase!=RunPhase.Running || IsModal) return;
-            float dt=Time.deltaTime; elapsed+=dt; RunTimer+=dt;
+            if(!CanAct){ClearIncomingDamage();return;}
+            float now=Time.time; float dt=Time.deltaTime; elapsed+=dt;
+            BeginIncomingFrame();
+            RunTimer+=dt;
             UpdateRunDirector(dt);
-            if(Phase!=RunPhase.Running || Drafting) return;
+            if(Phase!=RunPhase.Running||Drafting){ClearIncomingDamage();return;}
             if(HasNovaPulse && Time.time >= nextNovaPulse)
             {
                 nextNovaPulse = Time.time + 10f;
@@ -768,8 +774,11 @@ namespace Umbra
             if(moving) playerSprite.flipX=facing.x<-.05f;
             playerSprite.sprite=moving?rangerFrames[1+(int)(elapsed*9)%2]:rangerFrames[0];
             actorVisual.localPosition=new(0,moving?Mathf.Abs(Mathf.Sin(elapsed*12))*.05f:0,0);
-            playerSprite.color=Time.time<invulnerableUntil?new Color(.62f,1,1):Class==HeroClass.Mage?new Color(.82f,.80f,1):Class==HeroClass.Swordsman?new Color(1,.85f,.75f):Color.white;
+            playerSprite.color=IsPlayerProtected(now)?new Color(.62f,1,1):Class==HeroClass.Mage?new Color(.82f,.80f,1):Class==HeroClass.Swordsman?new Color(1,.85f,.75f):Color.white;
             UpdateHorde(dt); UpdateEnemies(dt);
+            if(Phase!=RunPhase.Running){ClearIncomingDamage();return;}
+            UpdateHazards(dt);
+            ResolveIncomingDamage(now);
             if(Phase!=RunPhase.Running)return;
             UpdateShots(dt);
             if(Phase!=RunPhase.Running)return;
@@ -870,7 +879,7 @@ namespace Umbra
             if(!CanAct||Time.time<dashAt)return false;
             float cdr = CombatRules.CooldownReduction(INT);
             dashAt=Time.time+CombatRules.DashCooldown*(1f-cdr);
-            dashUntil=Time.time+.18f;invulnerableUntil=Time.time+.28f;dashDirection=facing;
+            dashUntil=Time.time+.18f;dashImmuneUntil=Mathf.Max(dashImmuneUntil,Time.time+.28f);dashDirection=facing;
             Pulse(Player.position,1,mint,.28f);return true;
         }
         public bool TryHeal()
@@ -937,27 +946,29 @@ namespace Umbra
 
         void UpdateEnemies(float dt)
         {
-            foreach(var e in enemies)
+            float now = Time.time;
+            for(int i = 0; i < enemies.Count; i++)
             {
-                if(e.hp<=0 || !e.root.gameObject.activeSelf) continue;
-                if(e.burnUntil>Time.time && Time.time>=e.burnTick){e.burnTick=Time.time+1;DamageEnemy(e,e.burnDamage);if(e.hp<=0)continue;}
-                if(e.boss){UpdateBoss(e,dt);continue;}
-                Vector3 delta=Player.position-e.root.position;float distance=delta.magnitude;
-                Vector3 goal=Player.position;
-                if(e.windupUntil>0)
+                var e = enemies[i];
+                if(e.hp <= 0 || !e.root.gameObject.activeSelf) continue;
+                if(e.burnUntil > now && now >= e.burnTick){e.burnTick = now + 1; DamageEnemy(e, e.burnDamage); if(e.hp <= 0) continue;}
+                if(e.boss){UpdateBoss(e, dt); continue;}
+                Vector3 delta = Player.position - e.root.position; delta.y = 0; float distance = delta.magnitude;
+                float stopDist = 0.8f * (DamageRules.PlayerRadius + e.contactRadius);
+                if(distance > stopDist)
                 {
-                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(e.contactDamage);e.windupUntil=0;e.attackAt=Time.time+1.0f;}
+                    Vector3 motion = delta.normalized * e.moveSpeed;
+                    foreach(var other in enemies) if(other != e && other.hp > 0)
+                    {
+                        Vector3 away = e.root.position - other.root.position; away.y = 0; float sq = away.sqrMagnitude;
+                        if(sq > .001f && sq < .8f) motion += away.normalized * (.8f - sq) * 2;
+                    }
+                    SlideEnemy(e, motion * dt);
                 }
-                else if(distance<1.05f&&Time.time>=e.attackAt){e.windupUntil=Time.time+.5f;Pulse(e.root.position,1.3f,new(1,.32f,.2f),.5f);}
-                else if(distance>1.0f)
-                {
-                    Vector3 motion=delta.normalized*e.moveSpeed;
-                    foreach(var other in enemies)if(other!=e&&other.hp>0){Vector3 away=e.root.position-other.root.position;float sq=away.sqrMagnitude;if(sq>.001f&&sq<.8f)motion+=away.normalized*(.8f-sq)*2;}
-                    SlideEnemy(e,motion*dt);
-                }
-                e.visual.localPosition=new(0,Mathf.Abs(Mathf.Sin(elapsed*4+e.phase))*.10f,0);
-                e.sprite.flipX=delta.x<0;
-                e.sprite.color=Time.time<e.flashUntil?new(1,.52f,.36f):(e.windupUntil>0?new(1,.68f,.5f):Color.white);
+                TryContactAttack(e, i, now);
+                e.visual.localPosition = new(0, Mathf.Abs(Mathf.Sin(elapsed * 4 + e.phase)) * .10f, 0);
+                e.sprite.flipX = delta.x < 0;
+                e.sprite.color = now < e.flashUntil ? new(1, .52f, .36f) : Color.white;
             }
         }
         void UpdateShots(float dt)
@@ -1098,14 +1109,7 @@ namespace Umbra
             if(pendingDrafts>0){pendingDrafts--;TriggerLevelUp();}
             SyncPause();
         }
-        public void HurtPlayer(int damage)
-        {
-            if(Phase!=RunPhase.Running||Time.time<invulnerableUntil)return;
-            if(Class==HeroClass.Swordsman)damage=Mathf.CeilToInt(damage*.8f);
-            Health=Mathf.Max(0,Health-damage);lastHitAt=Time.time;invulnerableUntil=Time.time+.55f;PlayCue(1);
-            Popup(Player.position+Vector3.up*1.6f,"-"+damage,new(1,.4f,.3f));
-            if(Health==0)FinishRun(false,"Defeated in the field");
-        }
+
 
         void UpdateLoot(float dt)
         {
