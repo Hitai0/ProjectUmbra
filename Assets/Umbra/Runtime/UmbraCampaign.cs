@@ -225,18 +225,38 @@ namespace Umbra
                 if(other!=null){Pulse(other.root.position,.8f,mint,.25f);DamageEnemy(other,Mathf.RoundToInt(damage*.4f));}
             }
         }
-        bool TrySpawnPosition(out Vector3 pos)
+        bool InSpawnView(Vector3 point,float margin=.08f)
         {
-            for(int i=0;i<32;i++)
+            Vector3 foot=WorldCamera.WorldToViewportPoint(point);
+            Vector3 head=WorldCamera.WorldToViewportPoint(point+Vector3.up*3f);
+            return foot.z>0&&foot.x>=-margin&&foot.x<=1+margin&&
+                Mathf.Max(foot.y,head.y)>=-margin&&Mathf.Min(foot.y,head.y)<=1+margin;
+        }
+        bool TrySpawnPosition(out Vector3 pos,int preferredSide=-1)
+        {
+            var groundPlane=new Plane(Vector3.up,Vector3.zero);
+            for(int i=0;i<48;i++)
             {
-                float angle=Random.value*Mathf.PI*2;pos=Player.position+new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*Random.Range(10f,15f);
-                if(IsWalkable(pos)&&(pos-Player.position).sqrMagnitude>=64)return true;
+                // First try the wave's front; use other edges if the field boundary blocks it.
+                int side=preferredSide>=0&&i<12?preferredSide:Random.Range(0,4);
+                float along=Random.Range(.02f,.98f),margin=Random.Range(.16f,.24f);
+                Vector3 viewport=side==0?new(-margin,along,0):side==1?new(1+margin,along,0):side==2?new(along,-margin,0):new(along,1+margin,0);
+                Ray ray=WorldCamera.ViewportPointToRay(viewport);
+                if(!groundPlane.Raycast(ray,out float distance))continue;
+                pos=ray.GetPoint(distance);
+                if(!IsWalkable(pos)||(pos-Player.position).sqrMagnitude<64||InSpawnView(pos))continue;
+                bool occupied=false;
+                foreach(var enemy in enemies)
+                    if(enemy.hp>0&&(enemy.root.position-pos).sqrMagnitude<1.44f){occupied=true;break;}
+                if(!occupied)return true;
             }
             pos=Vector3.zero;return false;
         }
         void SpawnEnemy(Enemy e,Vector3 pos,int hp)
         {
             e.root.position=pos;e.home=pos;e.maxHp=e.hp=hp;e.windupUntil=e.burnUntil=e.flashUntil=0;
+            e.contactDamage=CombatRules.EnemyDamage(e.elite,SelectedMap,RunTimer);
+            e.moveSpeed=(e.elite?1.8f:2.15f)*(1+Mathf.Min(.3f,RunTimer/2400f))*(SelectedMap==1?1.4f:1f);
             e.attackAt=Time.time+1;e.boss=false;e.root.gameObject.SetActive(true);
             e.visual.localScale=Vector3.one*(e.elite?1.5f:1);
         }
@@ -260,7 +280,7 @@ namespace Umbra
         void SpawnBoss()
         {
             bossSpawned=true;
-            // A clear central arena prevents scenery and river geometry from trapping the finale.
+            // The finale retains its bounded central arena and fixed encounter timing.
             ClearCombat();Player.position=new(0,0,-2);walkingTo=false;invulnerableUntil=Time.time+2;
             boss=enemies[7];SpawnEnemy(boss,new(0,0,5),CombatRules.GuardianHealth(SelectedMap));boss.boss=true;
             boss.visual.localScale=Vector3.one*2.6f;nextBossAttack=Time.time+2;bossReleaseAt=0;

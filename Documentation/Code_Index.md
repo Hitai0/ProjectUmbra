@@ -48,7 +48,7 @@
 - `Damage(RuneKind rune, int level, int str, int dex) -> int`: Base damage calculation per projectile.
 - `ProjectileCount(RuneKind rune) -> int`: 3 for Scatter, 1 for Pierce/Ember.
 - `ExperienceToLevel(int level) -> int`: EXP needed for permanent Base Level progression (`60 + (level - 1) * 35`).
-- `HordeCap` / `HordeBatch` / `HordeInterval` / `EnemyHealth` / `EnemyDamage` / `GuardianHealth`: Time-based encounter tuning, alongside elite/champion arrival and pool size.
+- `HordeCap` / `HordeBatch` / `HordeInterval` / `EnemyHealth` / `EnemyDamage` / `GuardianHealth`: Encounter tuning; `WaveAt` selects authored minute rows (target, batch, interval, elite budget, front). See `Documentation/Spawn_Design.md`.
 - `RunExperienceToLevel(int level) -> int`: EXP needed for mid-run level-up draft (`140 + 60n + 8n²; n = level - 1`).
 - `RuneName(RuneKind rune) -> string` / `RuneDescription(RuneKind rune) -> string`: Localized display texts.
 - `RollPerks(int count = 3, int luk = 1) -> List<Perk>`: Randomly rolls unweighted draft boons from `AllPerks`.
@@ -83,7 +83,7 @@
 - `ToggleMobileInput()`: Switches between Desktop and Mobile Touch input modes.
 - `PointerOverHud() -> bool`: Returns true if mouse/finger is touching any HUD element (prevents unintended tap-to-walk).
 - `MovePlayer(Vector3 delta)`: Moves player transform while obeying `IsWalkable` boundaries.
-- `IsWalkable(Vector3 p) -> bool`: Checks arena bounds, river barriers, and obstacle trees.
+- `IsWalkable(Vector3 p) -> bool`: Checks the 160 x 160m open field bounds and the smaller guardian arena while a boss is active.
 - `TryAttack(Vector3 point) -> bool`: Fires primary weapon (or slashes for Swordsman) towards target point.
 - `Fire(Vector3 direction, RuneKind rune, int damage, bool isCrit)`: Spawns and configures projectile `Shot`.
 - `TryVolley() -> bool`: Triggers Q ability (Wind Nova radial burst).
@@ -123,6 +123,8 @@
 - `BuySupplies()`: Spends collected amber at camp to increase max HP rank.
 - `ToggleSound()` / `ToggleFocus()` / `TogglePause()`: Player settings toggles.
 - `UpdateRunDirector(float dt)`: Controls monster wave pacing, elites, and triggers the boss at 14:00 (840s).
+- `InSpawnView` / `TrySpawnPosition`: Camera-aware offscreen placement, ground bounds, player clearance and actor spacing.
+- `SpawnEnemy`: Resets pooled actors and snapshots HP, damage and speed at spawn.
 - `SpawnBoss()` / `UpdateBoss(Enemy e, float dt)`: Spawns and manages guardian boss mechanics.
 - `AddHazard(...)` / `UpdateHazards(float dt)`: Spawns ground telegraph damage areas (e.g. boss seeds, poison pools).
 - `PlayCue(int cue)`: Synthesizes procedural sound effects (hit, draft, level-up chime, boss).

@@ -38,3 +38,13 @@ These checks validate geometry and input conversion, not visual or real-device t
 Unity compilation and a fresh Play Mode smoke run passed (181 assertions). Added coverage: opening batches/cap, elite gate and admission at 45s, reserved champion at 120s, the 14-common-pickup first run level, actual common contact damage, and all guardians' HP, body/aimed telegraphs, delayed volley and enrage cadence. Existing progression, settlement, hit grace and HUD checks still pass.
 
 These checks validate mechanics, not final difficulty. Full-run playtests, guardian time-to-kill, actual draft cadence, permanent-economy impact and performance at 64 enemies remain unmeasured. WebGL was not rebuilt. See GDD.md for reference direction and tuning.
+
+## Open meadow pass - 2026-09-25
+
+Unity compilation and fresh Play Mode smoke tests passed (188 assertions). New checks cover the former river/shrine positions, a traversal grid across the field, all four boundaries, safe spawns at all four corners, and reward-free recycling of distant enemies. Inspected the generated central-field camera capture: the interior is open with low ground decoration and no river, gate or canopy obstruction. This capture does not verify the HUD or perimeter camera views. WebGL was not rebuilt; full-run travel and device performance still need playtesting.
+
+## Camera-aware wave director - 2026-09-25
+
+Unity compilation and a fresh Play Mode suite passed (201 assertions). New coverage includes offscreen placement with player clearance at four aspect ratios and both zoom limits (24/46 degrees), camera-aligned corner spawning, elite budget, live damage/speed stability across wave boundaries, pressure-wave population bounds, relief preserving living actors, and exact wave schedule transitions. Existing guardian, reward settlement, map and HUD tests still pass. Source whitespace checks passed.
+
+The wave values are authored Umbra tuning, not verified Vampire Survivors internals. No full-run playtest, density/frame-time profiling or WebGL rebuild was performed. See Spawn_Design.md for primary references, rationale, wave rows and tradeoffs.

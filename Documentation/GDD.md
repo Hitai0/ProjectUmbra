@@ -14,19 +14,24 @@ Base XP thresholds remain 60 + 35 × (level − 1) to preserve existing saves. B
 
 | Time | Behaviour |
 |---|---|
-| 0–1 min | Opening draft; four enemies per batch; elites eligible at 0:45 |
-| 1–3 min | Five per batch; champion at 2:00 |
-| 3–7 min | Six per batch; increasing density and HP |
-| 7–14 min | Eight per batch; cap rises toward 64 |
-| 14–15 min | Clear field, restore 25% HP, fight guardian in central arena |
+| 0–14 min | Authored minute waves; alternating pressure and relief; see [Spawn Design](Spawn_Design.md) |
+| 0:45 | Elites eligible when population slots become available |
+| 2:00 | Reserved champion |
+| 14–15 min | Clear field, restore 25% HP, guardian in central arena |
 | 15:00 | Defeat by timeout unless guardian died |
 
-Pool size is 72; the last actor is reserved for the champion. Horde cap = min(64, 18 + floor(elapsed/15)). Spawn interval = max(0.65, 1.25 - elapsed/1200) seconds, with the first batch due at 0.5s after the opening draft. Rotation through the pool prevents repeatedly killed commons from starving elites. Spawns still require walkable terrain and at least 8m clearance. Common/elite HP = 65/240 × (1 + map index × .5 + elapsed/480). Champion HP = 900 + map index × 350; failed safe-position searches retry.
+The 72-actor pool supports up to 64 ordinary enemies plus a reserved champion. Minute wave rows set population, batch size, interval and elite budget. Refill ticks run twice as fast below half the target but retain a bounded batch. First tick is due 0.5s after the opening draft. HP = 65/240 × (1 + map index × .5 + elapsed/480); champion HP = 900 + map index × 350. Safe-position failures retry on later ticks. Enemy HP, contact damage and speed are fixed at spawn.
 
 Common/elite contact damage = 16/30 × (1 + map index × .3 + elapsed/1200), with 0.5s windup and 1s recovery. Movement speed = 2.15/1.8, increasing up to 30% over time; Mire retains its ×1.4 modifier. Hit grace remains 0.55s.
 
 This pass uses continuous horde pressure and escalating survival decisions as inspiration from [Vampire Survivors](https://poncle.games/vampire-survivors), not its exact numeric formulas. The free opening boon remains; the next draft requires 14 common amber pickups instead of 5. Later thresholds grow quadratically. Permanent XP and amber per pickup stay unchanged, so increased kills can accelerate permanent earnings. Actual draft cadence and difficulty need playtesting.
 
+
+## Open meadow layout
+
+All three routes now use a 160 x 160 metre walkable field (x/z from -80 to +80), replacing the approximately 44 x 42 metre forest corridors. River, bridge and shrine geometry are no longer generated, and their collision restrictions are removed. Trees decorate the outside perimeter; low pebbles and grass leave the interior open. A ground border marks the finite edge. Ground extends beyond it for the following camera, and the minimap maps the full field bounds.
+
+Hordes spawn outside the camera viewport with at least 8m player clearance and 1.2m actor spacing. Ordinary enemies beyond 40m recycle only outside an expanded view, without kills, loot or XP. The reserved champion persists. The 14-minute guardian encounter retains its existing bounded central arena to preserve the previous balance pass.
 
 ## Class and support identity
 

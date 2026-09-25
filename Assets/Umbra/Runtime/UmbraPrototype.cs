@@ -67,6 +67,8 @@ namespace Umbra
             public SpriteRenderer sprite;
             public Vector3 home;
             public int hp, maxHp;
+            public int contactDamage;
+            public float moveSpeed;
             public float attackAt, windupUntil, respawnAt, flashUntil, phase;
             public bool elite, boss;
             public float burnUntil, burnTick; public int burnDamage;
@@ -336,29 +338,33 @@ namespace Umbra
             grain.intensity.Override(.08f);
             crownMesh=MakeCrownMesh();
             var ground=Mat("moss",new(.44f,.48f,.34f));
-            ground.mainTexture=Resources.Load<Texture2D>("Umbra/ground");ground.mainTextureScale=new Vector2(12,12);
-            Shape("Forest floor", PrimitiveType.Cube, new(0, -.27f, 0), new(64, .5f, 64), ground);
+            ground.mainTexture=Resources.Load<Texture2D>("Umbra/ground");ground.mainTextureScale=new Vector2(40,40);
+            Shape("Forest floor", PrimitiveType.Cube, new(0, -.27f, 0), new(CombatRules.FieldHalfSize*2+40, .5f, CombatRules.FieldHalfSize*2+40), ground);
             BuildGround();
             var bark = Mat("bark", new(.23f, .15f, .095f));
             Color[] leaves = { new(.88f, .44f, .12f), new(.96f, .58f, .14f), new(1.0f, .72f, .18f), new(.46f, .50f, .18f), new(.28f, .38f, .19f) };
-            for (int i = 0; i < 108; i++)
+            // Keep tall scenery outside the playable meadow so hordes remain readable.
+            for (int i = 0; i < 80; i++)
             {
-                float x = Random.Range(-24f, 24f), z = Random.Range(-21f, 25f);
-                if (Mathf.Abs(x - Mathf.Sin(z * .15f) * 2) < 5.7f && z < 14) continue;
-                if (x > 9.4f && x < 14.6f) continue;
-                if (Vector2.Distance(new(x, z), new(0, 9)) < 5) continue;
-                Tree(new(x, 0, z), Random.Range(2.8f, 5.7f), bark, Mat("canopy" + i % 5, leaves[i % 5]));
+                float edge=CombatRules.FieldHalfSize+Random.Range(4f,9f);
+                float along=Random.Range(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize);
+                Vector3 p=i%4==0?new(edge,0,along):i%4==1?new(-edge,0,along):i%4==2?new(along,0,edge):new(along,0,-edge);
+                Tree(p,Random.Range(2.8f,5.7f),bark,Mat("canopy"+i%5,leaves[i%5]));
             }
-            for (int i = 0; i < 90; i++)
+            // Low decorative stones never obstruct movement or conceal enemies.
+            for (int i = 0; i < 60; i++)
             {
-                Vector3 p = new(Random.Range(-22f, 22f), .12f, Random.Range(-20f, 24f));
-                if (Mathf.Abs(p.x) < 2.7f || (p.x > 10 && p.x < 14)) continue;
-                float s = Random.Range(.25f, .9f);
-                var rock = Shape("Moss stone", PrimitiveType.Sphere, p, new(s * 1.4f, s * .8f, s), Mat("stone" + i % 3, Color.Lerp(new(.28f,.32f,.28f), new(.46f,.47f,.34f), (i % 3) * .3f)));
-                rock.transform.rotation = Random.rotation;
+                Vector3 p=new(Random.Range(-78f,78f),.025f,Random.Range(-78f,78f));
+                float size=Random.Range(.15f,.35f);
+                Shape("Meadow pebble",PrimitiveType.Sphere,p,new(size,.08f,size),Mat("meadow stone",new(.38f,.41f,.30f)));
             }
-            BuildRuins();
-            BuildRiver();
+            var border=Mat("meadow boundary",new(.62f,.52f,.29f));
+            float half=CombatRules.FieldHalfSize;
+            for(int side=-1;side<=1;side+=2)
+            {
+                Shape("Field boundary",PrimitiveType.Cube,new(side*half,.005f,0),new(.35f,.02f,half*2),border);
+                Shape("Field boundary",PrimitiveType.Cube,new(0,.005f,side*half),new(half*2,.02f,.35f),border);
+            }
             StaticBatchingUtility.Combine(world.gameObject);
             BuildMotes();
             BuildActors();
@@ -369,9 +375,9 @@ namespace Umbra
             // Thousands of colored triangles in a few meshes rather than thousands of renderers.
             List<Vector3> verts = new(); List<int> tris = new(); List<Color> colors = new();
             Color[] palette = { new(.32f,.42f,.18f), new(.46f,.46f,.20f), new(.24f,.34f,.15f), new(.68f,.45f,.16f), new(.78f,.52f,.18f), new(.58f,.32f,.14f) };
-            for (int i = 0; i < 7600; i++)
+            for (int i = 0; i < 16000; i++)
             {
-                float x = Random.Range(-29f,29f), z = Random.Range(-28f,29f);
+                float x = Random.Range(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize), z = Random.Range(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize);
                 float path = Mathf.Sin(z * .15f) * 2;
                 bool onRoad = Mathf.Abs(x - path) < 1.5f;
                 Color c = onRoad ? new Color(.42f,.35f,.23f) : palette[Random.Range(0,palette.Length)];
@@ -397,9 +403,7 @@ namespace Umbra
             go.GetComponent<MeshFilter>().sharedMesh = mesh;
             var mat = new Material(Shader.Find("Umbra/VertexColor")); owned.Add(mat);
             go.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            var dirt = Mat("old road", new(.40f,.34f,.22f));
-            for (int z = -27; z < 26; z++)
-                Shape("Old pilgrim road", PrimitiveType.Cube, new(Mathf.Sin(z*.15f)*2,-.014f,z),new(2.8f,.026f,1.2f),dirt);
+
         }
 
         void Tree(Vector3 p, float height, Material bark, Material foliage)
@@ -787,10 +791,7 @@ namespace Umbra
         public bool IsWalkable(Vector3 p)
         {
             if(BossActive&&(Mathf.Abs(p.x)>4.8f||p.z< -7||p.z>7))return false;
-            if(Mathf.Abs(p.x)>22||p.z< -20||p.z>22)return false;
-            if(p.x>10.3f&&p.x<13.7f&&Mathf.Abs(p.z-3)>1)return false;
-            foreach(var o in obstacles) if(new Vector2(p.x-o.x,p.z-o.z).sqrMagnitude<.64f)return false;
-            if(Mathf.Abs(p.z-10)<.65f&&Mathf.Abs(Mathf.Abs(p.x)-2.2f)<.8f)return false;
+            if(Mathf.Abs(p.x)>CombatRules.FieldHalfSize||Mathf.Abs(p.z)>CombatRules.FieldHalfSize)return false;
             return true;
         }
         public void MovePlayer(Vector3 delta)
@@ -872,25 +873,36 @@ namespace Umbra
         void UpdateHorde(float dt)
         {
             if(BossActive||Time.time<nextHordeSpawn)return;
-            nextHordeSpawn=Time.time+CombatRules.HordeInterval(RunTimer);
-            int active=0;foreach(var e in enemies)if(e.hp>0&&e.root.gameObject.activeSelf)active++;
-            int cap=CombatRules.HordeCap(RunTimer), batch=CombatRules.HordeBatch(RunTimer);
-            // Rotate through the pool so repeatedly killed commons cannot starve elite spawns.
-            // Reserve the last actor for the champion; never replace a living enemy.
-            if(RunTimer>=CombatRules.EliteArrival&&!enemies.Exists(enemy=>enemy.elite&&enemy.hp>0))
+            var wave=CombatRules.WaveAt(RunTimer);
+            // Never recycle visible actors, even when zoom/aspect makes the view wider than 40m.
+            for(int i=0;i<enemies.Count-1;i++)
+            {
+                var enemy=enemies[i];
+                if(enemy.hp>0&&!enemy.boss&&!InSpawnView(enemy.root.position,.25f)&&
+                    (enemy.root.position-Player.position).sqrMagnitude>CombatRules.EnemyRecycleDistance*CombatRules.EnemyRecycleDistance)
+                {enemy.hp=0;enemy.root.gameObject.SetActive(false);}
+            }
+            int active=0,elites=0;
+            for(int i=0;i<enemies.Count-1;i++)
+                if(enemies[i].hp>0&&enemies[i].root.gameObject.activeSelf){active++;if(enemies[i].elite)elites++;}
+            // Refill an empty field promptly, but never burst-spawn an entire target population.
+            bool depleted=active<wave.Target/2;
+            nextHordeSpawn=Time.time+(depleted?wave.Interval*.5f:wave.Interval);
+            int batch=wave.Batch,available=enemies.Count-1;
+            int eliteTarget=RunTimer>=CombatRules.EliteArrival?wave.EliteCap:0;
+            if(elites<eliteTarget)
             {
                 int eliteSlot=enemies.FindIndex(enemy=>enemy.elite&&enemy.hp<=0&&!enemy.boss);
-                if(eliteSlot>=0&&eliteSlot<enemies.Count-1)hordeCursor=eliteSlot;
+                if(eliteSlot>=0&&eliteSlot<available)hordeCursor=eliteSlot;
             }
-            int available=enemies.Count-1;
-            for(int checkedSlots=0;checkedSlots<available&&active<cap&&batch>0;checkedSlots++)
+            for(int checkedSlots=0;checkedSlots<available&&active<wave.Target&&batch>0;checkedSlots++)
             {
                 var e=enemies[hordeCursor];hordeCursor=(hordeCursor+1)%available;
-                if(e.hp>0||e.boss)continue;
-                if(e.elite&&RunTimer<CombatRules.EliteArrival)continue;
-                if(!TrySpawnPosition(out Vector3 pos))continue;
+                if(e.hp>0||e.boss||(e.elite&&elites>=eliteTarget))continue;
+                int side=wave.Front?((int)(RunTimer/60f)/4)%4:-1;
+                if(!TrySpawnPosition(out Vector3 pos,side))continue;
                 SpawnEnemy(e,pos,CombatRules.EnemyHealth(e.elite,SelectedMap,RunTimer));
-                active++;batch--;
+                active++;batch--;if(e.elite)elites++;
             }
         }
 
@@ -905,12 +917,12 @@ namespace Umbra
                 Vector3 goal=Player.position;
                 if(e.windupUntil>0)
                 {
-                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(CombatRules.EnemyDamage(e.elite,SelectedMap,RunTimer));e.windupUntil=0;e.attackAt=Time.time+1.0f;}
+                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(e.contactDamage);e.windupUntil=0;e.attackAt=Time.time+1.0f;}
                 }
                 else if(distance<1.05f&&Time.time>=e.attackAt){e.windupUntil=Time.time+.5f;Pulse(e.root.position,1.3f,new(1,.32f,.2f),.5f);}
                 else if(distance>1.0f)
                 {
-                    Vector3 motion=delta.normalized*(e.elite?1.8f:2.15f)*(1+Mathf.Min(.3f,RunTimer/2400f))*(SelectedMap==1?1.4f:1f);
+                    Vector3 motion=delta.normalized*e.moveSpeed;
                     foreach(var other in enemies)if(other!=e&&other.hp>0){Vector3 away=e.root.position-other.root.position;float sq=away.sqrMagnitude;if(sq>.001f&&sq<.8f)motion+=away.normalized*(.8f-sq)*2;}
                     SlideEnemy(e,motion*dt);
                 }

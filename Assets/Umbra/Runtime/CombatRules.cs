@@ -34,12 +34,31 @@ namespace Umbra
         public static int ExperienceToLevel(int level) => 60 + (level - 1) * 35;
         public static int RunExperienceToLevel(int level) => 140 + (level - 1) * 60 + (level - 1) * (level - 1) * 8;
         // Fixed time-based pressure: progression never silently scales enemies to the player's build.
+        public const float FieldHalfSize = 80f;
+        public const float EnemyRecycleDistance = 40f;
         public const int EnemyPoolSize = 72;
         public const float EliteArrival = 45f;
         public const float ChampionArrival = 120f;
-        public static int HordeCap(float seconds) => UnityEngine.Mathf.Min(64, 18 + (int)(seconds / 15f));
-        public static int HordeBatch(float seconds) => seconds < 60 ? 4 : seconds < 180 ? 5 : seconds < 420 ? 6 : 8;
-        public static float HordeInterval(float seconds) => UnityEngine.Mathf.Max(.65f, 1.25f - seconds / 1200f);
+        public readonly struct HordeWave
+        {
+            public readonly int Target, Batch, EliteCap;
+            public readonly float Interval;
+            public readonly bool Front;
+            public HordeWave(int target,int batch,float interval,int elites,bool front=false)
+            {Target=target;Batch=batch;Interval=interval;EliteCap=elites;Front=front;}
+        }
+        // One row per minute before the guardian. Relief waves change composition, not the clock.
+        static readonly HordeWave[] HordeWaves = {
+            new(18,4,1.25f,1), new(24,5,1.15f,2), new(28,5,1.1f,2),
+            new(34,6,1f,3,true), new(28,5,1.1f,1), new(38,6,.95f,4),
+            new(44,7,.9f,4), new(48,7,.85f,5,true), new(40,6,1f,2),
+            new(52,8,.8f,5), new(56,8,.75f,6), new(60,8,.7f,6,true),
+            new(52,7,.85f,3), new(64,8,.65f,8)
+        };
+        public static HordeWave WaveAt(float seconds) => HordeWaves[UnityEngine.Mathf.Clamp((int)(seconds/60f),0,HordeWaves.Length-1)];
+        public static int HordeCap(float seconds) => WaveAt(seconds).Target;
+        public static int HordeBatch(float seconds) => WaveAt(seconds).Batch;
+        public static float HordeInterval(float seconds) => WaveAt(seconds).Interval;
         public static int EnemyHealth(bool elite, int map, float seconds) => UnityEngine.Mathf.RoundToInt((elite ? 240 : 65) * (1 + map * .5f + seconds / 480f));
         public static int EnemyDamage(bool elite, int map, float seconds) => UnityEngine.Mathf.RoundToInt((elite ? 30 : 16) * (1 + map * .3f + seconds / 1200f));
         public static int GuardianHealth(int map) => 3200 + map * 1400;

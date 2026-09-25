@@ -50,15 +50,53 @@ namespace Umbra
                 Check(!TryAddStat(CombatRules.StatKind.STR),"stats locked during expedition");
                 StatsPanel=true;SyncPause();Check(Time.timeScale==0&&!TryAttack(Vector3.forward),"modal pauses combat");StatsPanel=false;SyncPause();
                 Vector3 start=Player.position;MovePlayer(Vector3.right*.5f);Check(Vector3.Distance(start,Player.position)>.4f,"movement");
-                Check(!IsWalkable(new(12,0,0)),"river collision");
+                Check(IsWalkable(new(12,0,0))&&IsWalkable(new(2.2f,0,10)),"former river and shrine are open");
+                bool fieldOpen=true;
+                for(int x=-79;x<=79;x+=2)for(int z=-79;z<=79;z+=2)fieldOpen&=IsWalkable(new(x,0,z));
+                Check(fieldOpen,"open meadow traversal grid");
+                Check(!IsWalkable(new(81,0,0))&&!IsWalkable(new(-81,0,0))&&!IsWalkable(new(0,0,81))&&!IsWalkable(new(0,0,-81)),"160 metre field boundaries");
+                Vector3 savedPosition=Player.position,savedCameraPosition=WorldCamera.transform.position;
+                foreach(var corner in new[]{new Vector3(79,0,79),new Vector3(-79,0,79),new Vector3(79,0,-79),new Vector3(-79,0,-79)})
+                {
+                    Player.position=corner;WorldCamera.transform.position=corner+cameraOffset;
+                    Check(TrySpawnPosition(out var edgeSpawn)&&IsWalkable(edgeSpawn)&&(edgeSpawn-corner).sqrMagnitude>=64,"safe corner spawn "+corner);
+                }
+                Player.position=savedPosition;WorldCamera.transform.position=savedCameraPosition;
+                float savedAspect=WorldCamera.aspect,savedFov=WorldCamera.fieldOfView;
+                foreach(float aspect in new[]{16f/9f,21f/9f,4f/3f,9f/19.5f})
+                foreach(float fov in new[]{24f,46f})
+                {
+                    WorldCamera.aspect=aspect;WorldCamera.fieldOfView=fov;
+                    bool safe=true;
+                    for(int sample=0;sample<12;sample++)safe&=TrySpawnPosition(out var spawn)&&!InSpawnView(spawn)&&(spawn-Player.position).sqrMagnitude>=64;
+                    Check(safe,"offscreen spawns aspect/FOV "+aspect+" / "+fov);
+                }
+                WorldCamera.aspect=savedAspect;WorldCamera.fieldOfView=savedFov;
                 for(int i=0;i<100;i++)if(TrySpawnPosition(out var pos))Check(IsWalkable(pos)&&(pos-Player.position).sqrMagnitude>=64,"safe spawn "+i);
                 ClearCombat();RunTimer=0;hordeCursor=0;nextHordeSpawn=0;UpdateHorde(0);
                 Check(enemies.FindAll(enemy=>enemy.hp>0).Count==4,"opening horde batch");
                 for(int wave=0;wave<20;wave++){nextHordeSpawn=0;UpdateHorde(0);}
                 Check(enemies.FindAll(enemy=>enemy.hp>0).Count==18&&!enemies.Exists(enemy=>enemy.hp>0&&enemy.elite),"opening cap and elite gate");
+                enemies[0].root.position=Player.position+Vector3.right*50;
+                int beforeRecycleKills=Kills,beforeRecycleLoot=loot.Count;
+                nextHordeSpawn=0;UpdateHorde(0);
+                Check((enemies[0].hp==0||(enemies[0].root.position-Player.position).sqrMagnitude<=1600)&&Kills==beforeRecycleKills&&loot.Count==beforeRecycleLoot,"distant enemies recycle without rewards");
+                // Simulate defeated commons freeing slots; live actors are not erased at wave changes.
+                for(int slot=0;slot<4;slot++){enemies[slot].hp=0;enemies[slot].root.gameObject.SetActive(false);}
                 RunTimer=45;
                 for(int wave=0;wave<20;wave++){nextHordeSpawn=0;UpdateHorde(0);}
                 Check(enemies.Exists(enemy=>enemy.hp>0&&enemy.elite),"early elites enter rotating pool");
+                Check(enemies.FindAll(enemy=>enemy.hp>0&&enemy.elite).Count<=1,"opening elite budget");
+                var snapshotEnemy=enemies.Find(enemy=>enemy.hp>0);
+                int originalDamage=snapshotEnemy.contactDamage;float originalSpeed=snapshotEnemy.moveSpeed;
+                RunTimer=180;UpdateEnemies(0);
+                Check(snapshotEnemy.contactDamage==originalDamage&&snapshotEnemy.moveSpeed==originalSpeed,"live enemy stats stay fixed across waves");
+                for(int waveTick=0;waveTick<50;waveTick++){nextHordeSpawn=0;UpdateHorde(0);}
+                Check(enemies.FindAll(enemy=>enemy.hp>0).Count<=34,"pressure wave respects population limit");
+                int populationBeforeRelief=enemies.FindAll(enemy=>enemy.hp>0).Count;
+                RunTimer=240;nextHordeSpawn=0;UpdateHorde(0);
+                Check(enemies.FindAll(enemy=>enemy.hp>0).Count==populationBeforeRelief,"relief wave preserves living enemies");
+                Check(CombatRules.WaveAt(179.9f).Target==28&&CombatRules.WaveAt(180).Front&&CombatRules.WaveAt(240).Target==28,"wave transitions and relief schedule");
                 RunTimer=120;UpdateRunDirector(0);
                 Check(miniSpawned&&enemies[enemies.Count-1].hp==900,"two minute champion");
                 ClearCombat();RunTimer=0;

@@ -159,17 +159,18 @@ namespace Umbra
             if(Button(new(1469,36,94,31),"PAUSE  [ESC]",Game.Paused))Game.TogglePause();
 
             Panel(new(1334,97,239,214));
-            Label(1350,110,"THE OLD PILGRIM ROAD",heading,gold);
+            Label(1350,110,"THE OPEN MEADOW",heading,gold);
             Box(new(1351,143,204,135),new(.12f,.18f,.13f));
-            Box(new(1436,149,9,122),new(.43f,.37f,.23f));
-            Box(new(1504,143,12,135),new(.19f,.35f,.32f));
+            Vector2 MapPoint(Vector3 point) => new Vector2(
+                1355+Mathf.InverseLerp(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize,point.x)*196,
+                274-Mathf.InverseLerp(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize,point.z)*127);
             foreach(var e in Game.Enemies)
             {
                 if(e.hp<=0||!e.root.gameObject.activeSelf)continue;
-                Vector3 p=e.root.position;Box(new(1449+p.x*4,213-p.z*2.8f,4,4),new(.80f,.42f,.28f));
+                Vector2 p=MapPoint(e.root.position);Box(new(p.x-2,p.y-2,4,4),new(.80f,.42f,.28f));
             }
-            Vector3 player=Game.Player.position;
-            Box(new(1447+player.x*4,211-player.z*2.8f,7,7),cream);
+            Vector2 player=MapPoint(Game.Player.position);
+            Box(new(player.x-3.5f,player.y-3.5f,7,7),cream);
             Label(1350,287,"N  /  FIELD 01",small,muted);
             Label(1472,287,"LOCAL",small,mint);
             Panel(new(1334,329,239,156));
