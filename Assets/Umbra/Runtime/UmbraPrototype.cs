@@ -11,7 +11,7 @@ namespace Umbra
 {
     public sealed partial class UmbraPrototype : MonoBehaviour
     {
-        public const string Version = "0.2.1";
+        public const string Version = "0.2.2";
         public Camera WorldCamera { get; private set; }
         public Transform Player { get; private set; }
         public int MaxHealthBonus { get; private set; }
@@ -179,7 +179,7 @@ namespace Umbra
 
         void Start()
         {
-            Application.targetFrameRate = 60;
+            Application.targetFrameRate = 60; Application.runInBackground = true;
             LoadProfile();
             BuildWorld();
             gameObject.AddComponent<UmbraHud>().Game = this;

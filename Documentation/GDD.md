@@ -1,4 +1,4 @@
-# Project Umbra — refined playable design, v0.2.1
+# Project Umbra — refined playable design, v0.2.2
 
 This replaces the earlier MMO and open-ended horde assumptions. The current target is a **single-player** 15-minute action roguelite. The supplied refined plan v2 is the reference; the decisions below describe the implemented slice, not future promises.
 

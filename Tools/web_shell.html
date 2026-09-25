@@ -29,7 +29,7 @@
     <button id="enter">ENTER CAMP</button>
     <progress id="progress" value="0" max="1"></progress>
     <div id="status">Desktop browser recommended · Keyboard &amp; mouse</div>
-  </div><div class="footer">PRE-ALPHA 0.2.1 · SINGLE PLAYER<br>WASD MOVE &nbsp; / &nbsp; AUTO-AIM &nbsp; / &nbsp; SPACE DODGE &nbsp; / &nbsp; Q NOVA &nbsp; / &nbsp; E MEND</div></div>
+  </div><div class="footer">PRE-ALPHA 0.2.2 · SINGLE PLAYER<br>WASD MOVE &nbsp; / &nbsp; AUTO-AIM &nbsp; / &nbsp; SPACE DODGE &nbsp; / &nbsp; Q NOVA &nbsp; / &nbsp; E MEND</div></div>
   <div id="error" role="alert"></div>
   <button id="fullscreen" aria-label="Toggle fullscreen">FULLSCREEN</button>
   <script>
@@ -39,7 +39,7 @@
     document.querySelector('#fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();canvas.focus();}catch(err){status.textContent='Fullscreen is unavailable in this browser.';}};
     enter.addEventListener('click',()=>{
       enter.disabled=true;enter.textContent='OPENING THE PATH';progress.style.display='block';
-      const v='0.2.1';
+      const v='0.2.2';
       const script=document.createElement('script');script.src='Build/@@BUILD_NAME@@.loader.js?v='+v;
       script.onerror=()=>showError('Unity loader could not be downloaded. Check the Web build and local server.');
       script.onload=()=>createUnityInstance(canvas,{

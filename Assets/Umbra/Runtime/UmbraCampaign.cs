@@ -112,7 +112,7 @@ namespace Umbra
             SyncPause();
         }
         void SyncPause(){Time.timeScale=Phase==RunPhase.Running&&!IsModal?1:0;}
-        void OnApplicationFocus(bool focus){if(!focus&&Phase==RunPhase.Running){Paused=true;SyncPause();}}
+        void OnApplicationFocus(bool focus){}
 
         public void EnterCamp()
         {

@@ -24,7 +24,7 @@ Settlement transitions Running → Results before awarding anything, so repeated
 
 Perspective 3D camera (34° FoV), pixel sprite actors, shared materials, static environment batching, directional light, SSAO and optional bokeh depth of field. Soft focus and audio can be toggled. The original HDRP template is retained for compatibility; this prototype uses URP.
 
-Menus pause simulation and the expedition clock. Focus loss also pauses. The command-file bridge supports a fixed list of editor operations and is ignored by Git; it never executes arbitrary shell input. Smoke tests never write player saves.
+Menus pause simulation and the expedition clock. Focus loss does not pause, supporting background/idle play. `Application.runInBackground = true` is enabled. The command-file bridge supports a fixed list of editor operations and is ignored by Git; it never executes arbitrary shell input. Smoke tests never write player saves.
 
 ## Known limits
 

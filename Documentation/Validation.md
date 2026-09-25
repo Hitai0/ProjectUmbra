@@ -1,4 +1,4 @@
-# Validation — v0.2.1
+# Validation — v0.2.2
 
 Validated 2026-09-24 on Windows with Unity 6000.3.24f1, URP and the new Input System.
 
