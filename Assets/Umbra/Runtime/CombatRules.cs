@@ -32,7 +32,17 @@ namespace Umbra
 
         public static int ProjectileCount(RuneKind rune) => rune == RuneKind.Scatter ? 3 : 1;
         public static int ExperienceToLevel(int level) => 60 + (level - 1) * 35;
-        public static int RunExperienceToLevel(int level) => 45 + (level - 1) * 25;
+        public static int RunExperienceToLevel(int level) => 140 + (level - 1) * 60 + (level - 1) * (level - 1) * 8;
+        // Fixed time-based pressure: progression never silently scales enemies to the player's build.
+        public const int EnemyPoolSize = 72;
+        public const float EliteArrival = 45f;
+        public const float ChampionArrival = 120f;
+        public static int HordeCap(float seconds) => UnityEngine.Mathf.Min(64, 18 + (int)(seconds / 15f));
+        public static int HordeBatch(float seconds) => seconds < 60 ? 4 : seconds < 180 ? 5 : seconds < 420 ? 6 : 8;
+        public static float HordeInterval(float seconds) => UnityEngine.Mathf.Max(.65f, 1.25f - seconds / 1200f);
+        public static int EnemyHealth(bool elite, int map, float seconds) => UnityEngine.Mathf.RoundToInt((elite ? 240 : 65) * (1 + map * .5f + seconds / 480f));
+        public static int EnemyDamage(bool elite, int map, float seconds) => UnityEngine.Mathf.RoundToInt((elite ? 30 : 16) * (1 + map * .3f + seconds / 1200f));
+        public static int GuardianHealth(int map) => 3200 + map * 1400;
         public const float BossTime = 840f;
         public const float RunDuration = 900f;
         public static string RuneName(RuneKind rune) => rune switch

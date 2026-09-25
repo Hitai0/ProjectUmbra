@@ -26,3 +26,15 @@ In the Codex Chromium browser on localhost: loaded the WebGL build, entered camp
 ## Scope limits
 
 This is a prototype balance pass. Automated guardian/timeout checks advance the clock and invoke real game methods; they are not a claim of a complete 15-minute manual playthrough on every route. Mobile, Safari, low-end hardware, long-session performance and broad player balance testing remain unvalidated. Class sprites/world geometry are reused; cards are draft effects rather than a persistent socket inventory.
+
+## Responsive HUD correction — 2026-09-25
+
+Unity compilation and runtime smoke suite passed (161 assertions). Added 20 layout assertions across 1600x900, 2560x1080, 1024x768, 390x844 and 844x390: fixed edge margins, centered modals, desktop hit areas and mobile coordinate conversion. HUD groups now anchor to the actual viewport; modal backdrops cover it fully. Mobile amber no longer overlaps the XP bar. Draft hover uses the IMGUI-local pointer without applying the matrix inverse twice.
+
+These checks validate geometry and input conversion, not visual or real-device touch testing. Menus retain their proportional reference layout (no portrait column reflow). Existing WebGL build output has not been rebuilt for this correction.
+
+## Horde balance pass - 2026-09-25
+
+Unity compilation and a fresh Play Mode smoke run passed (181 assertions). Added coverage: opening batches/cap, elite gate and admission at 45s, reserved champion at 120s, the 14-common-pickup first run level, actual common contact damage, and all guardians' HP, body/aimed telegraphs, delayed volley and enrage cadence. Existing progression, settlement, hit grace and HUD checks still pass.
+
+These checks validate mechanics, not final difficulty. Full-run playtests, guardian time-to-kill, actual draft cadence, permanent-economy impact and performance at 64 enemies remain unmeasured. WebGL was not rebuilt. See GDD.md for reference direction and tuning.

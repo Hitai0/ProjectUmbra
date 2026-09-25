@@ -2,6 +2,37 @@ using UnityEngine;
 
 namespace Umbra
 {
+    internal readonly struct HudLayout
+    {
+        public readonly float Scale, Width, Height;
+        public Vector2 Extra => new Vector2(Width - 1600f, Height - 900f);
+        public HudLayout(float width, float height)
+        {
+            Scale = Mathf.Max(.0001f, Mathf.Min(width / 1600f, height / 900f));
+            Width = width / Scale;
+            Height = height / Scale;
+        }
+        public Vector2 Point(Vector2 point, float x, float y) => point + Vector2.Scale(Extra, new Vector2(x, y));
+        public Matrix4x4 Matrix(float x, float y) => Matrix4x4.TRS(
+            Point(Vector2.zero, x, y) * Scale, Quaternion.identity, new Vector3(Scale, Scale, 1));
+        public Vector2 FromScreen(Vector2 point) => new Vector2(point.x / Scale, Height - point.y / Scale);
+        public bool Contains(Vector2 point, Rect rect, float x, float y)
+        {
+            rect.position = Point(rect.position, x, y);
+            return rect.Contains(point);
+        }
+        public bool OverHud(Vector2 p, bool mobile)
+        {
+            if (Contains(p, new Rect(26, 26, 322, mobile ? 157 : 113), 0, 0) ||
+                Contains(p, new Rect(600, 18, 365, 88), .5f, 0) ||
+                Contains(p, new Rect(1015, 26, 558, 52), 1, 0) ||
+                Contains(p, new Rect(1334, 97, 239, 388), 1, 0)) return true;
+            if (mobile) return Contains(p, new Rect(1240, 480, 300, 335), 1, 1);
+            return Contains(p, new Rect(26, 792, 304, 79), 0, 1) ||
+                Contains(p, new Rect(447, 759, 704, 113), .5f, 1);
+        }
+    }
+
     // Immediate-mode HUD keeps this playable slice self-contained, with no external UI packages.
     public sealed partial class UmbraHud : MonoBehaviour
     {
@@ -9,7 +40,9 @@ namespace Umbra
         GUIStyle text, small, title, number, button, centered, damage, heading;
         Texture2D portrait, circleTex;
         readonly Color cream=new(.93f,.88f,.73f), gold=new(.77f,.60f,.31f), muted=new(.60f,.65f,.57f), mint=new(.42f,.79f,.63f);
-        float scale;
+        HudLayout layout;
+        void Anchor(float x, float y) => GUI.matrix = layout.Matrix(x, y);
+        Rect Backdrop => new Rect(-layout.Extra.x / 2, -layout.Extra.y / 2, layout.Width, layout.Height);
         void Styles()
         {
             if(text!=null)return;
@@ -80,17 +113,18 @@ namespace Umbra
         {
             if(Game==null||!Game.Ready)return;Styles();
             Game.DrawWorldLabels(damage);
-            scale=Mathf.Min(Screen.width/1600f,Screen.height/900f);
-            float offsetX=(Screen.width-1600*scale)/2,offsetY=(Screen.height-900*scale)/2;
-            GUI.matrix=Matrix4x4.TRS(new Vector3(offsetX,offsetY,0),Quaternion.identity,new Vector3(scale,scale,1));
+            layout = new HudLayout(Screen.width, Screen.height);
+            Matrix4x4 previousMatrix = GUI.matrix;
+            Anchor(.5f, .5f);
             if(Game.Phase!=RunPhase.Running)
             {
                 if(Game.Phase==RunPhase.Camp)DrawCamp();else DrawResults();
                 if(Game.StatsPanel)DrawStats();
                 if(Game.RunePanel)DrawRunes();
                 if(Game.HelpPanel)DrawGuide();
-                GUI.matrix=Matrix4x4.identity;return;
+                GUI.matrix=previousMatrix;return;
             }
+            Anchor(0, 0);
             Panel(new(26,26,322,113));
             if(GUI.Button(new Rect(26,26,322,113),GUIContent.none,GUIStyle.none)) Game.StatsPanel=!Game.StatsPanel;
             Box(new(39,39,64,82),new(.15f,.20f,.14f));
@@ -104,12 +138,14 @@ namespace Umbra
             Label(243,96,Game.RunExperience+" XP",small,gold);
             Bar(39,126,293,(float)Game.RunExperience/CombatRules.RunExperienceToLevel(Game.RunLevel),gold);
 
+            Anchor(.5f, 0);
             Panel(new(600,18,365,88));
             Label(640,25,"P R O J E C T   U M B R A",heading,cream,450);
             Label(686,46,Game.MapName,small,muted,400);
             int mins=(int)(Game.RunTimer/60f), secs=(int)(Game.RunTimer%60f);
             Label(720,67,string.Format("{0:00}:{1:00} / 15:00", mins, secs),number,mint,200);
 
+            Anchor(1, 0);
             Panel(new(1015,26,115,52));
             string statsLabel = Game.StatPoints>0 ? "STATS ["+Game.StatPoints+"]" : "STATS  [C]";
             if(Button(new(1023,36,99,31), statsLabel, Game.StatsPanel || Game.StatPoints>0)) Game.StatsPanel=!Game.StatsPanel;
@@ -143,6 +179,7 @@ namespace Umbra
             Bar(1350,425,205,Game.BossActive?Game.BossHealth:Game.RunTimer/840f,Game.BossActive?new Color(.85f,.3f,.2f):mint);
             Label(1350,446,Game.BossActive?"Defeat it before 15:00":"Dodge amber warning circles",small,gold);
 
+            Anchor(.5f, 0);
             if(Time.unscaledTime<Game.NoticeUntil)
             {
                 var style=new GUIStyle(centered){fontSize=16};
@@ -151,11 +188,13 @@ namespace Umbra
             }
             if(!Game.IsMobile)
             {
+                Anchor(0, 1);
                 Panel(new(26,792,304,79));
                 Label(43,803,"THIS EXPEDITION",small,muted);
                 Label(43,824,Game.RunShards.ToString("N0")+"  amber",number,gold);
                 Label(200,835,"Banked at end",small,muted);
 
+                Anchor(.5f, 1);
                 Panel(new(447,789,704,83));
                 Skill(461,"LMB","SPIRIT ARROW",Game.AttackRemaining,CombatRules.AttackCooldown,()=>Game.Notify(Game.AutoAim?"Auto-firing at nearest foe.":"Hold LMB to aim and fire."));
                 Skill(598,"Q","WIND NOVA",Game.VolleyRemaining,CombatRules.VolleyCooldown,()=>Game.TryVolley());
@@ -163,6 +202,7 @@ namespace Umbra
                 Skill(872,"E","MEND",Game.HealRemaining,CombatRules.HealCooldown,()=>Game.TryHeal());
                 if(Button(new(1009,802,126,55),"TAB\nBUILD DETAILS"))Game.RunePanel=!Game.RunePanel;
                 Label(535,759,"EQUIPPED  /  "+CombatRules.RuneName(Game.Rune)+"  •  "+(Game.AutoAim?"AUTO-AIM ON":"MANUAL AIM"),small,gold);
+                Anchor(1, 1);
                 Label(1254,826,"WASD move   /   RMB travel",small,cream);
                 Label(1254,847,"Scroll zoom   /   H controls",small,muted);
             }
@@ -170,15 +210,17 @@ namespace Umbra
             {
                 DrawMobileCombatHud();
             }
+            Anchor(0, 1);
             Label(28,880,"PRE-ALPHA  "+UmbraPrototype.Version+"   /   ROGUELITE HORDE SURVIVAL",small,muted,700);
 
+            Anchor(.5f, .5f);
             if(Game.RunePanel)DrawRunes();
             if(Game.HelpPanel)DrawGuide();
             if(Game.StatsPanel)DrawStats();
             if(Game.Drafting)DrawDraft();
             if(Game.Paused)
             {
-                Box(new(0,0,1600,900),new(0,0,0,.5f));Panel(new(560,260,480,410));
+                Box(Backdrop,new(0,0,0,.5f));Panel(new(560,260,480,410));
                 Label(610,310,"A MOMENT OF STILLNESS",number);
                 Label(610,355,"The grove can wait.",text,muted);
                 if(Button(new(610,395,380,40),"RETURN TO THE GROVE"))Game.TogglePause();
@@ -187,7 +229,7 @@ namespace Umbra
                 if(Button(new(610,490,380,36),Game.IsMobile?"CONTROLS: MOBILE TOUCH":"CONTROLS: DESKTOP"))Game.ToggleMobileInput();
                 if(Button(new(610,535,380,40),"END RUN & BANK COLLECTED REWARDS"))Game.FinishRun(false,"Returned safely to camp");
             }
-            GUI.matrix=Matrix4x4.identity;
+            GUI.matrix=previousMatrix;
         }
         void Skill(float x,string key,string name,float remaining,float cooldown,System.Action action)
         {
@@ -197,11 +239,12 @@ namespace Umbra
         }
         void DrawMobileCombatHud()
         {
-            Panel(new(26, 126, 322, 38));
-            Label(38, 134, "EXPEDITION AMBER: " + Game.RunShards.ToString("N0"), heading, gold, 300);
+            Anchor(0, 0);
+            Panel(new(26, 145, 322, 38));
+            Label(38, 153, "EXPEDITION AMBER: " + Game.RunShards.ToString("N0"), heading, gold, 300);
 
             // 1. Virtual Joystick (Bottom-Left)
-            Vector2 stickCenter = Game.IsJoystickActive ? Game.JoystickOrigin : new Vector2(175, 735);
+            Vector2 stickCenter = Game.IsJoystickActive ? Game.JoystickOrigin : layout.Point(new Vector2(175, 735), 0, 1);
             Vector2 knobPos = Game.IsJoystickActive ? Game.JoystickCurrent : stickCenter;
 
             CircleRing(stickCenter, 75f, 3f, new Color(gold.r, gold.g, gold.b, Game.IsJoystickActive ? 0.65f : 0.30f), new Color(0.04f, 0.07f, 0.05f, 0.65f));
@@ -222,6 +265,7 @@ namespace Umbra
             Circle(knobPos, 12f, Game.IsJoystickActive ? mint : gold);
 
             // 2. Action Buttons (Bottom-Right Arc)
+            Anchor(1, 1);
             Vector2 dodgeCenter = new(1430, 730);
             Vector2 novaCenter = new(1295, 755);
             Vector2 healCenter = new(1430, 585);
@@ -297,7 +341,7 @@ namespace Umbra
 
             // Smooth backdrop fade (0.15s)
             float backdropAlpha = Mathf.Lerp(0f, 0.78f, Mathf.Clamp01(animTime / 0.15f));
-            Box(new Rect(0, 0, 1600, 900), new Color(0, 0, 0, backdropAlpha));
+            Box(Backdrop, new Color(0, 0, 0, backdropAlpha));
 
             Panel(new(250, 150, 1100, 580));
             Label(570, 180, "C H O O S E   A   B O O N", title, gold);
@@ -350,7 +394,7 @@ namespace Umbra
             float cardHeight = 420;
             float spacing = 35;
             float startX = 250 + (1100 - (perks.Count * cardWidth + (perks.Count - 1) * spacing)) / 2f;
-            Vector2 mouseGui = (Vector2)GUI.matrix.inverse.MultiplyPoint3x4(Event.current.mousePosition);
+            Vector2 mouseGui = Event.current.mousePosition;
 
             for (int i = 0; i < perks.Count; i++)
             {
@@ -403,7 +447,7 @@ namespace Umbra
         }
         void DrawRunes()
         {
-            Box(new(0,0,1600,900),new(0,0,0,.45f));Panel(new(376,237,848,409));
+            Box(Backdrop,new(0,0,0,.45f));Panel(new(376,237,848,409));
             Label(408,264,"THE ART OF THE ARROW",title);
             Label(410,312,Game.Phase==RunPhase.Camp?"Choose a starting rune. Shared by every class.":"Your run build. Boons reset when you return to camp.",text,muted);
             for(int i=0;i<3;i++)
@@ -423,7 +467,7 @@ namespace Umbra
         }
         void DrawStats()
         {
-            Box(new Rect(0,0,1600,900),new Color(0,0,0,.72f));
+            Box(Backdrop,new Color(0,0,0,.72f));
             Panel(new(460,130,680,640));
             Label(570,155,"C H A R A C T E R   S T A T U S",title,gold);
             Label(525,205,Game.Class+"  •  BASE LV. " + Game.Level + "  (" + Game.Experience + " / " + CombatRules.ExperienceToLevel(Game.Level) + " EXP)",text,cream);
@@ -472,7 +516,7 @@ namespace Umbra
         }
         void DrawGuide()
         {
-            Box(new(0,0,1600,900),new(0,0,0,.45f));Panel(new(480,228,640,460));
+            Box(Backdrop,new(0,0,0,.45f));Panel(new(480,228,640,460));
             Label(516,254,"WELCOME, WANDERER",title);
             string[] lines={"WASD / Arrow keys     Move through the grove",
                             "Right mouse                 Travel to a point (no pathfinding)",

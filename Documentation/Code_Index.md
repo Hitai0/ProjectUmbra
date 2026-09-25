@@ -2,6 +2,7 @@
 
 > **For AI Agents & Developers**:  
 > Read this index before performing code edits. It maps every class, data structure, property, and method across the codebase so you can jump directly to the target file and line without running expensive full-directory scans or searches.
+> Read only the relevant sections of this index and follow the quota-conscious workflow in section 5.
 
 ---
 
@@ -47,7 +48,8 @@
 - `Damage(RuneKind rune, int level, int str, int dex) -> int`: Base damage calculation per projectile.
 - `ProjectileCount(RuneKind rune) -> int`: 3 for Scatter, 1 for Pierce/Ember.
 - `ExperienceToLevel(int level) -> int`: EXP needed for permanent Base Level progression (`60 + (level - 1) * 35`).
-- `RunExperienceToLevel(int level) -> int`: EXP needed for mid-run level-up draft (`45 + (level - 1) * 25`).
+- `HordeCap` / `HordeBatch` / `HordeInterval` / `EnemyHealth` / `EnemyDamage` / `GuardianHealth`: Time-based encounter tuning, alongside elite/champion arrival and pool size.
+- `RunExperienceToLevel(int level) -> int`: EXP needed for mid-run level-up draft (`140 + 60n + 8n²; n = level - 1`).
 - `RuneName(RuneKind rune) -> string` / `RuneDescription(RuneKind rune) -> string`: Localized display texts.
 - `RollPerks(int count = 3, int luk = 1) -> List<Perk>`: Randomly rolls unweighted draft boons from `AllPerks`.
 
@@ -139,7 +141,7 @@
 - `Circle(...)` / `CircleRing(...)`: Draws soft antialiased circles and ring borders for touch UI.
 
 #### HUD Views & Menus
-- `OnGUI()`: Main GUI dispatcher. Computes 1600x900 proportional screen matrix and routes to sub-views.
+- `OnGUI()`: Main GUI dispatcher. Computes proportional scale with screen-edge anchors and centered menus and routes to sub-views.
 - `DrawMobileCombatHud()`: Renders floating virtual analog joystick (bottom-left) and thumb-arc action buttons (DODGE, NOVA, MEND, AIM) with cooldown sweeps.
 - `Skill(...)`: Renders desktop bottom ability bar (LMB, Q, Space, E).
 - `DrawDraft()`: Renders the Level-Up Boon 3-card draft screen with `EaseOutBack` entrance animation, rarity colors, and full-card click/touch detection.
@@ -227,5 +229,16 @@ flowchart TD
 ## 4. Key Rules for Modifying Code
 1. **EXP from Amber Only**: Never add `RunExperience` directly in `DamageEnemy` or when a monster dies. EXP is strictly awarded inside `UpdateLoot()` when collecting amber shards.
 2. **Partial Class Cohesion**: Remember that `UmbraPrototype.cs`, `UmbraCampaign.cs`, and `UmbraCampaignTests.cs` share state via the same `UmbraPrototype` instance. Do not duplicate fields across these files.
-3. **Scaled IMGUI**: All HUD coordinates in `UmbraHud.cs` and `UmbraCampHud.cs` assume a virtual resolution of `1600 x 900`. `GUI.matrix` handles scaling automatically.
-4. **Mobile Safety**: When adding clickable HUD buttons, register their bounding boxes in `PointerOverHud()` in `UmbraPrototype.cs` so touching them does not cause the character to walk.
+3. **Scaled IMGUI**: HUD coordinates use a `1600 x 900` reference. `HudLayout` preserves uniform scaling while expanding the virtual canvas to the actual aspect ratio. `Anchor(x, y)` selects left/center/right and top/center/bottom anchoring; menus remain centered and backdrops cover the full screen. Input uses the same `HudLayout` conversion.
+4. **Mobile Safety**: When adding clickable HUD buttons, register their anchored bounding boxes in `HudLayout.OverHud()` (used by `PointerOverHud()` in `UmbraPrototype.cs`) so touching them does not cause the character to walk.
+
+## 5. Quota-Conscious Workflow
+
+User preference: keep investigation and verification proportional to the requested change.
+
+1. Use this index to locate the relevant files and methods. Search with targeted `rg` queries and read small surrounding sections instead of dumping whole files or all documentation.
+2. Expand the investigation only when a dependency, failure, or unresolved question requires it. Reuse information already read during the task.
+3. Keep tool output concise. Request relevant matches, short diffs, and test summaries; avoid repeating large logs or source listings.
+4. Make the smallest complete fix. Avoid unrelated refactoring, speculative improvements, or new tests that merely duplicate implementation details.
+5. Run required checks and focused tests appropriate to the affected behavior. Broaden or repeat testing only after new changes, failures, or unresolved concerns justify it. Do not rebuild WebGL for a source-only fix unless requested or needed to verify the issue.
+6. Report the result, checks performed, and any remaining verification limits briefly. Do not claim that account-wide quota changes can be attributed precisely to one task.

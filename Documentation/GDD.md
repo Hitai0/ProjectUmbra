@@ -6,7 +6,7 @@ This replaces the earlier MMO and open-ended horde assumptions. The current targ
 
 Permanent Base Level preserves RO-style identity: each level grants 3 points in STR / AGI / VIT / INT / DEX / LUK. Allocation and unlimited free reset happen at camp. There is no Job XP and no Zeny. Amber buys five camp-supply ranks (+5 HP each; 60/120/180/240/300 amber).
 
-Run Level resets each expedition and drives boon drafts, starting with a free opening choice. Separating it from Base Level keeps draft cadence the same for veterans and new characters. Run XP thresholds are 45 + 25 × (run level − 1). Regular enemies drop amber yielding 10 run XP / 5 permanent XP and 3 amber upon collection; elites drop amber yielding 30 / 15 and 9 amber. Killing monsters does not directly grant XP—XP is acquired exclusively by collecting amber shards. XP earned in a run and collected amber settle once on victory, defeat, timeout or voluntary return. Closing the application before settlement forfeits that run's unbanked rewards.
+Run Level resets each expedition and drives boon drafts, starting with a free opening choice. Separating it from Base Level keeps draft cadence the same for veterans and new characters. Run XP thresholds are 140 + 60 × (run level − 1) + 8 × (run level − 1)². Regular enemies drop amber yielding 10 run XP / 5 permanent XP and 3 amber upon collection; elites drop amber yielding 30 / 15 and 9 amber. Killing monsters does not directly grant XP—XP is acquired exclusively by collecting amber shards. XP earned in a run and collected amber settle once on victory, defeat, timeout or voluntary return. Closing the application before settlement forfeits that run's unbanked rewards.
 
 Base XP thresholds remain 60 + 35 × (level − 1) to preserve existing saves. Base Level caps at 99; each stat caps at 99. Invalid legacy allocations exceeding earned points are refunded rather than retained.
 
@@ -14,13 +14,19 @@ Base XP thresholds remain 60 + 35 × (level − 1) to preserve existing saves. B
 
 | Time | Behaviour |
 |---|---|
-| 0–5 min | Opening draft; gradual batches of two creatures |
-| 5–10 min | Three-enemy batches; elites join the pool |
-| 10–14 min | Higher density and a large champion |
-| 14–15 min | Clear the field, restore 25% HP, move to the bounded central arena, fight the guardian |
-| 15:00 | Defeat by timeout unless guardian already died |
+| 0–1 min | Opening draft; four enemies per batch; elites eligible at 0:45 |
+| 1–3 min | Five per batch; champion at 2:00 |
+| 3–7 min | Six per batch; increasing density and HP |
+| 7–14 min | Eight per batch; cap rises toward 64 |
+| 14–15 min | Clear field, restore 25% HP, fight guardian in central arena |
+| 15:00 | Defeat by timeout unless guardian died |
 
-Active ordinary enemies cap at 22. Spawns require walkable terrain and at least 8m clearance from the player. Spawn cadence falls from 3.1s toward 1.1s. Pool size stays 24. Common HP: 48 × (1 + map index × .5 + elapsed / 650). Elite base HP: 155 with the same scaling. Enemy bodies separate and slide around simple obstacles.
+Pool size is 72; the last actor is reserved for the champion. Horde cap = min(64, 18 + floor(elapsed/15)). Spawn interval = max(0.65, 1.25 - elapsed/1200) seconds, with the first batch due at 0.5s after the opening draft. Rotation through the pool prevents repeatedly killed commons from starving elites. Spawns still require walkable terrain and at least 8m clearance. Common/elite HP = 65/240 × (1 + map index × .5 + elapsed/480). Champion HP = 900 + map index × 350; failed safe-position searches retry.
+
+Common/elite contact damage = 16/30 × (1 + map index × .3 + elapsed/1200), with 0.5s windup and 1s recovery. Movement speed = 2.15/1.8, increasing up to 30% over time; Mire retains its ×1.4 modifier. Hit grace remains 0.55s.
+
+This pass uses continuous horde pressure and escalating survival decisions as inspiration from [Vampire Survivors](https://poncle.games/vampire-survivors), not its exact numeric formulas. The free opening boon remains; the next draft requires 14 common amber pickups instead of 5. Later thresholds grow quadratically. Permanent XP and amber per pickup stay unchanged, so increased kills can accelerate permanent earnings. Actual draft cadence and difficulty need playtesting.
+
 
 ## Class and support identity
 
@@ -51,11 +57,11 @@ Cards are run-draft rewards in this slice, not persistent monster-drop inventory
 
 | Map | Entry | Identity | Guardian |
 |---|---|---|---|
-| Amberfall Grove | Open; recommended Lv. 1–10 | Golden woodland | Elder Bloom; 1,800 HP |
-| Twilight Mire | Clear Amberfall; recommended Lv. 10–20 | Violet tint; enemies +40% speed; delayed poison pools on death | Venomous Chitin; 2,600 HP |
-| Ashfall Ridge | Clear Mire; recommended Lv. 20–30 | Ember tint; death explosions after 1.5s | Infernal Warden; 3,400 HP |
+| Amberfall Grove | Open; recommended Lv. 1–10 | Golden woodland | Elder Bloom; 3,200 HP |
+| Twilight Mire | Clear Amberfall; recommended Lv. 10–20 | Violet tint; enemies +40% speed; delayed poison pools on death | Venomous Chitin; 4,600 HP |
+| Ashfall Ridge | Clear Mire; recommended Lv. 20–30 | Ember tint; death explosions after 1.5s | Infernal Warden; 6,000 HP |
 
-Recommended levels are guidance, not extra locks. The three routes share geography and creature sprites, with material/post-process palettes, HP scaling and distinct hazards. Guardians fire radial projectiles and delayed attacks aimed at the player's last position; attack intervals tighten below half HP. Bosses use enlarged existing sprites. Victory adds 75/150/225 amber and 100/200/300 XP.
+Recommended levels are guidance, not extra locks. The three routes share geography and creature sprites, with material/post-process palettes, HP scaling and distinct hazards. Guardians pursue at 1m/s (1.5m/s below half HP), firing 12/16/16 radial projectiles plus four while enraged. Attack intervals fall from 2.5s to 1.6s below half HP. Each attack telegraphs a body hazard (0.9s warning, 36 + map × 7 damage) and an aimed hazard (1s warning, 32 + map × 7 damage). Projectiles deal 26 + map × 7 damage. The 60-second boss window remains unchanged. Bosses use enlarged existing sprites. Victory adds 75/150/225 amber and 100/200/300 XP.
 
 ## Presentation and follow-up scope
 

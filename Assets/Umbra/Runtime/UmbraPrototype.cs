@@ -104,6 +104,7 @@ namespace Umbra
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
         bool walkingTo;
         float attackAt, volleyAt, dashAt, healAt, invulnerableUntil, dashUntil, lastHitAt, elapsed;
+        int hordeCursor;
         float nextHordeSpawn = 2.5f, nextNovaPulse;
         readonly Vector3 cameraOffset = new(0, 18.5f, -15.5f);
         readonly Color gold = new(1f, .72f, .27f);
@@ -512,9 +513,9 @@ namespace Umbra
             Player=new GameObject("Wanderer • player").transform; Player.SetParent(transform); Player.position=new(0,0,-2);
             Shadow(Player,.75f); playerSprite=SpriteActor(Player,rangerFrames[0]); actorVisual=playerSprite.transform;
             Vector3[] homes={new(3,0,2),new(-3,0,3),new(4,0,6),new(-3,0,8),new(1,0,13),new(6,0,-3),new(-5,0,-5),new(5,0,12)};
-            for(int i=0;i<24;i++)
+            for(int i=0;i<CombatRules.EnemyPoolSize;i++)
             {
-                bool isElite = (i == 7 || i == 15 || i == 23);
+                bool isElite = i % 8 == 7;
                 Vector3 p = i < homes.Length ? homes[i] : new Vector3(Random.Range(-18f,18f),0,Random.Range(-16f,18f));
                 var enemy=new Enemy{home=p,maxHp=isElite?180:55,elite=isElite,phase=Random.value*6.28f};
                 enemy.hp = i < 8 ? enemy.maxHp : 0;
@@ -551,20 +552,12 @@ namespace Umbra
             bool healPressed = false;
             bool aimPressed = false;
 
-            float scale = Mathf.Min(Screen.width / 1600f, Screen.height / 900f);
-            float offsetX = (Screen.width - 1600f * scale) / 2f;
-            float offsetY = (Screen.height - 900f * scale) / 2f;
-
-            Vector2 ScreenToCanvas(Vector2 sp)
-            {
-                float gy = Screen.height - sp.y;
-                return new Vector2((sp.x - offsetX) / scale, (gy - offsetY) / scale);
-            }
-
-            Vector2 dodgeCenter = new(1430, 730); float dodgeR = 60f;
-            Vector2 novaCenter = new(1295, 755); float novaR = 48f;
-            Vector2 healCenter = new(1430, 585); float healR = 48f;
-            Vector2 aimCenter = new(1295, 635); float aimR = 40f;
+            var layout = new HudLayout(Screen.width, Screen.height);
+            Vector2 ScreenToCanvas(Vector2 sp) => layout.FromScreen(sp);
+            Vector2 dodgeCenter = layout.Point(new(1430, 730), 1, 1); float dodgeR = 60f;
+            Vector2 novaCenter = layout.Point(new(1295, 755), 1, 1); float novaR = 48f;
+            Vector2 healCenter = layout.Point(new(1430, 585), 1, 1); float healR = 48f;
+            Vector2 aimCenter = layout.Point(new(1295, 635), 1, 1); float aimR = 40f;
 
             var tsCur = Touchscreen.current;
             bool hasTouch = false;
@@ -601,7 +594,7 @@ namespace Umbra
 
                     if (sp.x < Screen.width * 0.48f && sp.y < Screen.height * 0.80f)
                     {
-                        if (isDown && joystickFingerId == -1)
+                        if (isDown && joystickFingerId == -1 && !layout.OverHud(cp, true))
                         {
                             joystickFingerId = fingerId;
                             IsJoystickActive = true;
@@ -635,7 +628,7 @@ namespace Umbra
 
                     if (mp.x < Screen.width * 0.48f && mp.y < Screen.height * 0.80f)
                     {
-                        if (isDown)
+                        if (isDown && !layout.OverHud(cp, true))
                         {
                             IsJoystickActive = true;
                             JoystickOrigin = cp;
@@ -778,20 +771,14 @@ namespace Umbra
         bool PointerOverHud()
         {
             if(Phase!=RunPhase.Running||IsModal)return true;
-            if(IsMobile)
-            {
-                Vector2 pos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
-                var ts = Touchscreen.current;
-                if(ts != null && ts.primaryTouch.press.isPressed) pos = ts.primaryTouch.position.ReadValue();
-                if(pos.x < Screen.width * 0.48f && pos.y < Screen.height * 0.80f) return true;
-                if(pos.x > Screen.width * 0.65f && pos.y < Screen.height * 0.75f) return true;
-                if(pos.y > Screen.height * 0.85f) return true;
-                return false;
-            }
-            if(Mouse.current==null)return false;
-            Vector2 p=Mouse.current.position.ReadValue();
-            return p.y<Screen.height*.16f || p.y>Screen.height*.85f || (p.x>Screen.width*.75f&&p.y>Screen.height*.45f);
+            Vector2 pos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+            var ts = Touchscreen.current;
+            if (IsMobile && ts != null && ts.primaryTouch.press.isPressed) pos = ts.primaryTouch.position.ReadValue();
+            var layout = new HudLayout(Screen.width, Screen.height);
+            if (IsMobile && pos.x < Screen.width * .48f && pos.y < Screen.height * .80f) return true;
+            return layout.OverHud(layout.FromScreen(pos), IsMobile);
         }
+
         Vector3 MousePoint()
         {
             Ray ray=WorldCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
@@ -885,18 +872,24 @@ namespace Umbra
         void UpdateHorde(float dt)
         {
             if(BossActive||Time.time<nextHordeSpawn)return;
-            float stage=RunTimer/300f;
-            nextHordeSpawn=Time.time+Mathf.Max(1.1f,3.1f-stage*.65f);
+            nextHordeSpawn=Time.time+CombatRules.HordeInterval(RunTimer);
             int active=0;foreach(var e in enemies)if(e.hp>0&&e.root.gameObject.activeSelf)active++;
-            int cap=Mathf.Min(22,6+(int)(RunTimer/50));
-            int batch=RunTimer<300?2:3;
-            foreach(var e in enemies)
+            int cap=CombatRules.HordeCap(RunTimer), batch=CombatRules.HordeBatch(RunTimer);
+            // Rotate through the pool so repeatedly killed commons cannot starve elite spawns.
+            // Reserve the last actor for the champion; never replace a living enemy.
+            if(RunTimer>=CombatRules.EliteArrival&&!enemies.Exists(enemy=>enemy.elite&&enemy.hp>0))
             {
-                if(active>=cap||batch<=0)break;
+                int eliteSlot=enemies.FindIndex(enemy=>enemy.elite&&enemy.hp<=0&&!enemy.boss);
+                if(eliteSlot>=0&&eliteSlot<enemies.Count-1)hordeCursor=eliteSlot;
+            }
+            int available=enemies.Count-1;
+            for(int checkedSlots=0;checkedSlots<available&&active<cap&&batch>0;checkedSlots++)
+            {
+                var e=enemies[hordeCursor];hordeCursor=(hordeCursor+1)%available;
                 if(e.hp>0||e.boss)continue;
-                if(e.elite&&RunTimer<300)continue;
+                if(e.elite&&RunTimer<CombatRules.EliteArrival)continue;
                 if(!TrySpawnPosition(out Vector3 pos))continue;
-                SpawnEnemy(e,pos,Mathf.RoundToInt((e.elite?155:48)*(1+SelectedMap*.5f+RunTimer/650f)));
+                SpawnEnemy(e,pos,CombatRules.EnemyHealth(e.elite,SelectedMap,RunTimer));
                 active++;batch--;
             }
         }
@@ -912,12 +905,12 @@ namespace Umbra
                 Vector3 goal=Player.position;
                 if(e.windupUntil>0)
                 {
-                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(Mathf.RoundToInt((e.elite?22:10)*(1+SelectedMap*.3f)));e.windupUntil=0;e.attackAt=Time.time+1.4f;}
+                    if(Time.time>=e.windupUntil){if(distance<1.35f)HurtPlayer(CombatRules.EnemyDamage(e.elite,SelectedMap,RunTimer));e.windupUntil=0;e.attackAt=Time.time+1.0f;}
                 }
-                else if(distance<1.05f&&Time.time>=e.attackAt){e.windupUntil=Time.time+.7f;Pulse(e.root.position,1.3f,new(1,.32f,.2f),.7f);}
+                else if(distance<1.05f&&Time.time>=e.attackAt){e.windupUntil=Time.time+.5f;Pulse(e.root.position,1.3f,new(1,.32f,.2f),.5f);}
                 else if(distance>1.0f)
                 {
-                    Vector3 motion=delta.normalized*(e.elite?1.35f:1.65f)*(SelectedMap==1?1.4f:1f);
+                    Vector3 motion=delta.normalized*(e.elite?1.8f:2.15f)*(1+Mathf.Min(.3f,RunTimer/2400f))*(SelectedMap==1?1.4f:1f);
                     foreach(var other in enemies)if(other!=e&&other.hp>0){Vector3 away=e.root.position-other.root.position;float sq=away.sqrMagnitude;if(sq>.001f&&sq<.8f)motion+=away.normalized*(.8f-sq)*2;}
                     SlideEnemy(e,motion*dt);
                 }

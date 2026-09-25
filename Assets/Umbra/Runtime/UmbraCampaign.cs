@@ -131,7 +131,7 @@ namespace Umbra
             MaxHealthBonus=BonusProjectiles=0;AttackSpeedMultiplier=MoveSpeedMultiplier=1;PickupRadius=5;HasNovaPulse=false;
             Health=MaxHealth;regenBank=0;miniSpawned=bossSpawned=false;boss=null;
             Rerolls=1;Won=false;ResultReason="";
-            attackAt=volleyAt=dashAt=healAt=0;dashUntil=0;invulnerableUntil=Time.time+2;nextHordeSpawn=Time.time+2;
+            attackAt=volleyAt=dashAt=healAt=0;dashUntil=0;invulnerableUntil=Time.time+2;nextHordeSpawn=Time.time+.5f;hordeCursor=0;
             Drafting=Paused=RunePanel=StatsPanel=HelpPanel=false;walkingTo=false;
             Player.position=new(0,0,-2);Phase=RunPhase.Running;ApplyMapPalette();
             TriggerLevelUp();Notify("Choose your first boon. Your 15-minute expedition begins.");
@@ -251,10 +251,9 @@ namespace Umbra
         {
             if(RunTimer>=CombatRules.RunDuration){RunTimer=CombatRules.RunDuration;FinishRun(false,"The expedition ran out of time");return;}
             if(RunTimer>=CombatRules.BossTime&&!bossSpawned)SpawnBoss();
-            else if(RunTimer>=600&&!miniSpawned)
+            else if(RunTimer>=CombatRules.ChampionArrival&&!miniSpawned)
             {
-                miniSpawned=true;
-                var e=enemies[7];if(TrySpawnPosition(out Vector3 p)){SpawnEnemy(e,p,600+SelectedMap*200);e.visual.localScale=Vector3.one*2;Notify("CHAMPION AWAKENED  /  Keep your distance");}
+                var e=enemies[enemies.Count-1];if(TrySpawnPosition(out Vector3 p)){miniSpawned=true;SpawnEnemy(e,p,900+SelectedMap*350);e.visual.localScale=Vector3.one*2;Notify("CHAMPION AWAKENED  /  Keep your distance");}
             }
             UpdateHazards(dt);
         }
@@ -263,7 +262,7 @@ namespace Umbra
             bossSpawned=true;
             // A clear central arena prevents scenery and river geometry from trapping the finale.
             ClearCombat();Player.position=new(0,0,-2);walkingTo=false;invulnerableUntil=Time.time+2;
-            boss=enemies[7];SpawnEnemy(boss,new(0,0,5),1800+SelectedMap*800);boss.boss=true;
+            boss=enemies[7];SpawnEnemy(boss,new(0,0,5),CombatRules.GuardianHealth(SelectedMap));boss.boss=true;
             boss.visual.localScale=Vector3.one*2.6f;nextBossAttack=Time.time+2;bossReleaseAt=0;
             var boundary=new GameObject("Guardian arena boundary",typeof(LineRenderer));boundary.transform.SetParent(transform);
             arenaBoundary=boundary.GetComponent<LineRenderer>();arenaBoundary.sharedMaterial=Mat("arena amber",new(1.8f,.6f,.15f),true);arenaBoundary.widthMultiplier=.13f;arenaBoundary.positionCount=5;
@@ -274,21 +273,25 @@ namespace Umbra
         void UpdateBoss(Enemy e,float dt)
         {
             e.sprite.color=Time.time<e.flashUntil?new(1,.6f,.3f):new(1,.86f,.65f);
+            Vector3 pursuit=Player.position-e.root.position;
+            if(pursuit.magnitude>2f)SlideEnemy(e,pursuit.normalized*(e.hp<e.maxHp*.5f?1.5f:1.0f)*dt);
             if(bossReleaseAt>0&&Time.time>=bossReleaseAt)
             {
-                bossReleaseAt=0;int count=SelectedMap==0?8:12;
+                bossReleaseAt=0;int count=(SelectedMap==0?12:16)+(e.hp<e.maxHp*.5f?4:0);
                 for(int i=0;i<count;i++)
                 {
                     var direction=Quaternion.Euler(0,i*360f/count+(RunTimer*7)%45,0)*Vector3.forward;
                     var orb=Shape("Guardian seed",PrimitiveType.Sphere,e.root.position+Vector3.up*.5f,Vector3.one*.28f,Mat("danger",new(2,.35f,.12f),true),transform);
-                    hostileShots.Add(new HostileShot{root=orb.transform,velocity=direction*(SelectedMap==1?4.5f:3.5f),expires=Time.time+6});
+                    hostileShots.Add(new HostileShot{root=orb.transform,velocity=direction*(SelectedMap==1?5.2f:4.3f),expires=Time.time+6});
                 }
             }
             if(Time.time>=nextBossAttack)
             {
-                nextBossAttack=Time.time+(e.hp<e.maxHp*.5f?2.2f:3.2f);bossReleaseAt=Time.time+.9f;
+                nextBossAttack=Time.time+(e.hp<e.maxHp*.5f?1.6f:2.5f);bossReleaseAt=Time.time+.9f;
                 Pulse(e.root.position,2,new(1,.3f,.12f),.9f);
-                AddHazard(Player.position,SelectedMap==0?1.6f:2f,1.2f,SelectedMap==1?3f:.3f,22+SelectedMap*5);
+                // Telegraph the guardian's body as well: standing inside it is no longer safe.
+                AddHazard(e.root.position,2.1f,.9f,.4f,36+SelectedMap*7);
+                AddHazard(Player.position,SelectedMap==0?1.8f:2f,1.0f,SelectedMap==1?3f:.5f,32+SelectedMap*7);
             }
         }
         void AddHazard(Vector3 point,float radius,float delay,float duration,int damage)
@@ -311,7 +314,7 @@ namespace Umbra
             {
                 var s=hostileShots[i];s.root.position+=s.velocity*dt;Vector3 delta=s.root.position-Player.position;delta.y=0;
                 bool hit=delta.sqrMagnitude<.45f;
-                if(hit)HurtPlayer(18+SelectedMap*5);
+                if(hit)HurtPlayer(26+SelectedMap*7);
                 if(hit||Time.time>s.expires){Destroy(s.root.gameObject);hostileShots.RemoveAt(i);}
             }
         }

@@ -11,7 +11,7 @@ namespace Umbra
         }
         void DrawCamp()
         {
-            Box(new(0,0,1600,900),new(.015f,.035f,.025f,.58f));
+            Box(Backdrop,new(.015f,.035f,.025f,.58f));
             Label(85,44,"P R O J E C T   U M B R A",title,cream,1000);
             Label(87,91,"THE WAYFARER'S CAMP    /    REST. REBUILD. RETURN.",heading,gold,1000);
             Label(1190,57,"BASE LV. "+Game.BaseLevel+"   /   "+Game.Shards+" AMBER",heading,gold,340);
@@ -58,7 +58,7 @@ namespace Umbra
         bool ShardsEnough()=>Game.SupplyRank<5&&Game.Shards>=Game.SupplyCost;
         void DrawResults()
         {
-            Box(new(0,0,1600,900),new(.01f,.02f,.015f,.78f));
+            Box(Backdrop,new(.01f,.02f,.015f,.78f));
             Panel(new(400,120,800,650));
             Label(455,162,Game.Won?"T H E   G R O V E   R E M E M B E R S":"E V E R Y   P A T H   T E A C H E S",heading,gold,700);
             Label(455,210,Game.Won?"EXPEDITION COMPLETE":"EXPEDITION ENDED",title,cream,700);
