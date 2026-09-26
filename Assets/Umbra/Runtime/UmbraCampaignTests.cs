@@ -162,7 +162,8 @@ namespace Umbra
                 AwardRunExperience(10);Check(RunLevel==beforeRunLevel+1&&Drafting,"fourteenth common pickup triggers draft");
                 while(Drafting)ApplyPerk(ActiveDraft[0]);
                 Health=MaxHealth;invulnerableUntil=0;HurtPlayer(CombatRules.EnemyDamage(false,0,0));
-                Check(Health==MaxHealth-16,"opening common contact damage");
+                // Earlier random drafts may grant Iron Bark; compare against the actual armor state.
+                Check(Health==MaxHealth-DamageRules.Incoming(16,PlayerArmor,0),"opening common contact damage");
                 Check(CombatRules.EnemyDamage(true,0,600)>30&&CombatRules.EnemyHealth(true,0,45)>240,"enemy pressure grows with time");
                 var e=enemies[0];SpawnEnemy(e,Player.position+Vector3.forward*2,48);int xp=EarnedExperience;DamageEnemy(e,999);
                 Check(Kills==1&&!e.root.gameObject.activeSelf&&EarnedExperience==xp,"no XP on monster death");
@@ -201,6 +202,7 @@ namespace Umbra
                 {
                     SelectClass(kind);
                     Check(playerSprite.sprite == classFrames[kind][0], "class sprite at camp " + kind);
+                    Check(ClassPortrait == classFrames[kind][0], "menu and HUD portrait follows selected class " + kind);
                     RefreshClassSprite(true);
                     Check(playerSprite.sprite != classFrames[kind][0], "class walking sprite " + kind);
                     StartRun();ApplyPerk(ActiveDraft[0]);

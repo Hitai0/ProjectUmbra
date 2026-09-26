@@ -103,3 +103,15 @@ Unity compilation and Play Mode smoke suite passed (280 assertions, +4 new check
 Fresh Play Mode compilation and smoke suite passed **313 checks** (26 additional checks). Coverage includes idle/walk sprite selection for all four classes, all three Mage runes, adjacent enemies receiving no splash damage, distinct victims, range, no arrow projectiles, cooldown, targeted Ember burning, no repeated victim with extra bolts, no-target cooldown preservation, paused casts, Chain remaining single-target, and effect cleanup. Original progression, combat and settlement checks passed.
 
 Inspected generated sheets for transparency and all four in-engine camera captures (`Recordings/Class-*.png`), including the Mage bolt landing on its target. Captures are synchronous within the smoke suite, so effects pending end-of-frame destruction from earlier guardian tests can appear in the background. Two earlier runs in the existing Play Mode session stopped at the pre-existing opening-horde-batch assertion; a fresh stopped/refreshed Play Mode run passed the complete suite. No claim of full-run balance validation or manual input playtesting. WebGL was not rebuilt or deployed.
+
+## Nearest lightning targets and class portraits — 2026-09-27
+
+Unity compilation and a fresh Play Mode smoke run passed **321 checks**. Eight new checks verify the selected class portrait for all four classes, closest active target selection in auto/manual modes despite aiming at a farther foe, and the next-closest distinct target for extra lightning bolts. Camp and combat HUD now draw the selected class idle sprite using its texture rectangle and preserved aspect ratio instead of a cached ranger texture.
+
+The first run exposed an existing test assumption: randomized earlier drafts can grant Iron Bark, but the incoming-damage check assumed zero armor. That assertion now uses the current armor mitigation; the subsequent full suite passed. No manual menu screenshot verification or WebGL rebuild/deployment was performed for this correction.
+
+## Matching Archer sprite — 2026-09-27
+
+Added a transparent 2172x724 three-frame Archer sheet generated with built-in imagegen using the Novice sheet as a style reference. Archer now uses the same class-sheet loading, scale normalization and selected-class portrait path as the other classes. Old ranger files are retained but are no longer loaded by gameplay.
+
+Unity compilation and a fresh smoke run passed **321 checks**. Inspected PNG transparency and the newly rendered `Recordings/Class-Archer.png`; the new green ranger, bow and feather render in-game at the shared class scale. Idle/walk selection and portrait identity checks passed. No manual animation playthrough or WebGL rebuild/deployment. Prompt recorded in `Archer_Art_Prompt.md`.

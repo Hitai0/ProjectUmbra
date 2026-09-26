@@ -38,7 +38,7 @@ namespace Umbra
     {
         public UmbraPrototype Game;
         GUIStyle text, small, title, number, button, centered, damage, heading;
-        Texture2D portrait, circleTex;
+        Texture2D circleTex;
         readonly Color cream=new(.93f,.88f,.73f), gold=new(.77f,.60f,.31f), muted=new(.60f,.65f,.57f), mint=new(.42f,.79f,.63f);
         HudLayout layout;
         void Anchor(float x, float y) => GUI.matrix = layout.Matrix(x, y);
@@ -55,7 +55,18 @@ namespace Umbra
             centered=new GUIStyle(text){alignment=TextAnchor.MiddleCenter};
             button=new GUIStyle(centered){fontSize=14,normal={textColor=cream},hover={textColor=Color.white}};
             damage=new GUIStyle(text){fontSize=19,fontStyle=FontStyle.Bold,alignment=TextAnchor.MiddleCenter};
-            portrait=Resources.Load<Texture2D>("Umbra/ranger_idle");
+        }
+        void DrawClassPortrait(Rect bounds)
+        {
+            var sprite = Game.ClassPortrait;
+            if (!sprite) return;
+            Rect source = sprite.rect;
+            float scale = Mathf.Min(bounds.width / source.width, bounds.height / source.height);
+            var destination = new Rect(bounds.center.x - source.width * scale * .5f,
+                bounds.center.y - source.height * scale * .5f, source.width * scale, source.height * scale);
+            var uv = new Rect(source.x / sprite.texture.width, source.y / sprite.texture.height,
+                source.width / sprite.texture.width, source.height / sprite.texture.height);
+            GUI.DrawTextureWithTexCoords(destination, sprite.texture, uv, true);
         }
         void Box(Rect r,Color c){GUI.color=c;GUI.DrawTexture(r,Texture2D.whiteTexture);GUI.color=Color.white;}
         void Panel(Rect r)
@@ -131,7 +142,7 @@ namespace Umbra
             Panel(new(26,26,322,113));
             if(GUI.Button(new Rect(26,26,322,113),GUIContent.none,GUIStyle.none)) Game.StatsPanel=!Game.StatsPanel;
             Box(new(39,39,64,82),new(.15f,.20f,.14f));
-            GUI.DrawTexture(new Rect(43,38,56,84),portrait,ScaleMode.ScaleToFit);
+            DrawClassPortrait(new Rect(43,38,56,84));
             Label(119,39,Loc.T("WANDERER","ผู้พเนจร"),heading);
             Label(278,39,Loc.T("Lv. ","เลเวล ")+Game.Level,heading,gold);
             if(Game.StatPoints>0) Label(260,59,Loc.T("+"+Game.StatPoints+" PTS","+"+Game.StatPoints+" แต้ม"),small,mint);

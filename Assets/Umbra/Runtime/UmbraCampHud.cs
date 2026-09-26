@@ -18,7 +18,7 @@ namespace Umbra
             Label(1190,57,Loc.T("BASE LV. ","เลเวลหลัก ")+Game.BaseLevel+"   /   "+Game.Shards+Loc.T(" AMBER"," อำพัน"),heading,gold,340);
             Panel(new(80,150,345,590));
             Label(105,174,Loc.T("01  /  YOUR WANDERER","01  /  ผู้พเนจรของคุณ"),heading,gold,300);
-            GUI.DrawTexture(new(180,224,140,190),portrait,ScaleMode.ScaleToFit);
+            DrawClassPortrait(new(180,224,140,190));
             Label(105,435,Loc.ClassName(Game.Class),title,cream,300);
             Label(105,483,Loc.T("BASE LV. ","เลเวลหลัก ")+Game.BaseLevel+"   /   "+Game.StatPoints+Loc.T(" STAT POINTS"," แต้มสเตตัส"),heading,mint,300);
             Bar(105,522,295,(float)Game.BaseExperience/CombatRules.ExperienceToLevel(Game.BaseLevel),gold);

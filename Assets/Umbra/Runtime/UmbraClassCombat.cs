@@ -11,6 +11,7 @@ namespace Umbra
         sealed class LightningFlash { public LineRenderer line; public float until; }
         const float LightningRange = 12f;
         const float LightningCooldown = 1.1f;
+        public Sprite ClassPortrait => classFrames.TryGetValue(Class, out var frames) ? frames[0] : null;
 
         Sprite[] LoadClassSheet(string name)
         {
@@ -40,7 +41,7 @@ namespace Umbra
             playerSprite.color = Color.white;
         }
 
-        bool CastLightning(Vector3 aim)
+        bool CastLightning()
         {
             lightningTargets.Clear();
             foreach (var enemy in enemies)
@@ -49,16 +50,9 @@ namespace Umbra
                     lightningTargets.Add(enemy);
             if (lightningTargets.Count == 0) return false;
 
-            // Manual aim chooses the first victim; auto aim chooses randomly across the nearby horde.
-            bool manual = !AutoAim || (UnityEngine.InputSystem.Mouse.current != null &&
-                UnityEngine.InputSystem.Mouse.current.leftButton.isPressed && !PointerOverHud());
-            if (manual) lightningTargets.Sort((a, b) =>
-                (a.root.position - aim).sqrMagnitude.CompareTo((b.root.position - aim).sqrMagnitude));
-            else for (int i = lightningTargets.Count - 1; i > 0; i--)
-            {
-                int j = Random.Range(0, i + 1);
-                (lightningTargets[i], lightningTargets[j]) = (lightningTargets[j], lightningTargets[i]);
-            }
+            // Every cast takes the nearest living foes, independent of cursor position or aim mode.
+            lightningTargets.Sort((a, b) =>
+                (a.root.position - Player.position).sqrMagnitude.CompareTo((b.root.position - Player.position).sqrMagnitude));
 
             int count = Mathf.Min(lightningTargets.Count, CombatRules.ProjectileCount(Rune) + BonusProjectiles);
             float modifier = 2.5f * (1 + (Rune == RuneKind.Pierce ? .2f : 0) +
@@ -144,6 +138,23 @@ namespace Umbra
             {
                 EnterCamp(); SelectClass(HeroClass.Mage); StartRun(); ApplyPerk(ActiveDraft[0]);
                 AutoAim = false; perkRanks.Clear(); BonusProjectiles = 0;
+                foreach (bool auto in new[] { false, true })
+                {
+                    ClearCombat(); AutoAim = auto; Rune = RuneKind.Pierce;
+                    SpawnEnemy(enemies[0], Player.position + Vector3.forward * 8, 10000);
+                    SpawnEnemy(enemies[1], Player.position + Vector3.forward * 2, 10000);
+                    SpawnEnemy(enemies[2], Player.position + Vector3.forward * 5, 10000);
+                    SpawnEnemy(enemies[3], Player.position + Vector3.forward, 10000);
+                    enemies[3].root.gameObject.SetActive(false);
+                    attackAt = 0; TryAttack(enemies[0].root.position);
+                    check(enemies[1].hp < 10000 && enemies[0].hp == 10000 && enemies[2].hp == 10000 && enemies[3].hp == 10000,
+                        "lightning chooses nearest active foe regardless of aim " + auto);
+                    enemies[1].hp = 10000; BonusProjectiles = 1;
+                    attackAt = 0; TryAttack(enemies[0].root.position);
+                    check(enemies[1].hp < 10000 && enemies[2].hp < 10000 && enemies[0].hp == 10000,
+                        "extra lightning chooses next nearest foe " + auto);
+                    BonusProjectiles = 0;
+                }
                 foreach (RuneKind rune in System.Enum.GetValues(typeof(RuneKind)))
                 {
                     ClearCombat(); Rune = rune;

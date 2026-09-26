@@ -105,7 +105,6 @@ namespace Umbra
         DepthOfField dof;
         Mesh crownMesh;
         SpriteRenderer playerSprite;
-        Sprite[] rangerFrames;
         Sprite sproutSprite, mushroomSprite;
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
         bool walkingTo;
@@ -556,14 +555,13 @@ namespace Umbra
         }
         void BuildActors()
         {
-            rangerFrames=new[]{LoadSprite("ranger_idle"),LoadSprite("ranger_step1"),LoadSprite("ranger_step2")};
-            classFrames[HeroClass.Archer]=rangerFrames;
+            classFrames[HeroClass.Archer]=LoadClassSheet("archer_sheet");
             classFrames[HeroClass.Novice]=LoadClassSheet("novice_sheet");
             classFrames[HeroClass.Mage]=LoadClassSheet("mage_sheet");
             classFrames[HeroClass.Swordsman]=LoadClassSheet("swordsman_sheet");
             sproutSprite=LoadSprite("sprout"); mushroomSprite=LoadSprite("mushroom");
             Player=new GameObject("Wanderer • player").transform; Player.SetParent(transform); Player.position=new(0,0,-2);
-            Shadow(Player,.75f); playerSprite=SpriteActor(Player,rangerFrames[0]); actorVisual=playerSprite.transform; RefreshClassSprite();
+            Shadow(Player,.75f); playerSprite=SpriteActor(Player,classFrames[Class][0]); actorVisual=playerSprite.transform; RefreshClassSprite();
             Vector3[] homes={new(3,0,2),new(-3,0,3),new(4,0,6),new(-3,0,8),new(1,0,13),new(6,0,-3),new(-5,0,-5),new(5,0,12)};
             for(int i=0;i<CombatRules.EnemyPoolSize;i++)
             {
@@ -921,7 +919,7 @@ namespace Umbra
         public bool TryAttack(Vector3 point)
         {
             if(!CanAct||Time.time<attackAt)return false;
-            if(Class==HeroClass.Mage)return CastLightning(point);
+            if(Class==HeroClass.Mage)return CastLightning();
             float speedMod = AttackSpeedMultiplier * (1f + CombatRules.AttackSpeedBonus(AGI)) * (Class==HeroClass.Archer?1.20f:1f);
             attackAt=Time.time+(CombatRules.AttackCooldown / speedMod);
             Vector3 dir=point-Player.position;dir.y=0;if(dir.sqrMagnitude<.01f)dir=facing;dir.Normalize();

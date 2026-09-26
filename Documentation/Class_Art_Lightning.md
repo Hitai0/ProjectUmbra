@@ -1,8 +1,8 @@
 # Class art and targeted lightning — 2026-09-26
 
-Each class now has its own idle and two walking frames. Archer keeps the original ranger art; Novice, Mage and Swordsman use new transparent sprite sheets. Camp class selection updates the sprite immediately. Runtime slicing trims transparent vertical padding and normalizes the new characters to 1.85 world units tall.
+Each class now has its own idle and two walking frames. Novice, Archer, Mage and Swordsman all use matching transparent sprite sheets. Camp class selection updates the world sprite and the menu/HUD portrait immediately; portraits use the idle sprite rectangle rather than the entire sprite sheet. Runtime slicing trims transparent vertical padding and normalizes the new characters to 1.85 world units tall.
 
-Mage basic attacks call lightning from above instead of firing arrows. Each bolt damages exactly one living target within 12m; there is no impact-radius damage. Auto aim samples distinct nearby enemies; manual aim prioritizes enemies nearest the cursor. A cast never strikes the same enemy twice. No valid victim means no cooldown is consumed.
+Mage basic attacks call lightning from above instead of firing arrows. Each bolt damages exactly one living target within 12m; there is no impact-radius damage. Every cast targets the nearest living, active enemies first, measured from the player, in both auto and manual aim modes. Extra bolts target the next nearest distinct enemies. A cast never strikes the same enemy twice. No valid victim means no cooldown is consumed.
 
 Initial tuning: 1.1-second cooldown, affected by attack speed, and 2.5 times the existing class attack damage before critical hits and lightning supports. This is provisional tuning, not a claim of completed balance playtesting. Q/Wind Nova remains the existing separate skill.
 
@@ -20,7 +20,7 @@ Damage bonuses from Pierce, Sprout and Branching Spirit add together. English an
 
 ## Art provenance
 
-Generated with the built-in imagegen tool, preserved as transparent PNGs in `Assets/Umbra/Resources/Umbra/`. Archer assets are unchanged. No external game artwork was copied.
+Generated with the built-in imagegen tool, preserved as transparent PNGs in `Assets/Umbra/Resources/Umbra/`. Archer received a matching three-frame sheet on 2026-09-27; the original ranger files remain as unused source assets. No external game artwork was copied.
 
 Prompt set for Novice and Mage:
 
