@@ -56,7 +56,7 @@ All advanced classes unlock at **Base Level 10 OR the first Amberfall clear**, r
 |---|---|
 | Novice | Balanced spirit-arrow attacks |
 | Archer | 20% faster attack cadence |
-| Mage | 25% stronger hits plus 1% spell damage per INT above 1 |
+| Mage | Targeted lightning from above; extra bolts strike distinct foes. See [class art and lightning](Class_Art_Lightning.md) for tuning and support mappings. |
 | Swordsman | 40% stronger directional cleaves, 20% less incoming damage |
 
 Choose Pierce / Split Shot / Ember as the starting rune. Rune replacements can appear during drafts; changing them freely mid-combat would make draft choices meaningless, so free selection is restricted to camp. Chain (40% bounce), Ignite (30% over three seconds, refresh only), Nova and Multishot work across all classes. Swordsman translates extra projectiles to +20% slash damage each and extra pierce to +0.4m reach. Sprout Card grants that pierce/reach; Mushroom Card grants 1 HP on kill.
@@ -101,7 +101,7 @@ In v0.2.4, Mobile Device Detection & Touch Input Experience:
 - Uncluttered mobile combat viewport: bottom desktop bar is hidden when mobile touch UI is active, freeing the center screen.
 - Full card tap selection in boon drafts for seamless mobile drafting.
 
-Next art/content pass: bespoke class sprites, richer music/SFX, additional enemy attack patterns, persistent card collection/socket UI, stagger, and more differentiated boss movement. These are not represented as implemented features. This release retains the existing procedural forest instead of claiming production Octopath-quality assets.
+Class sprites and Mage lightning: see [implemented class update](Class_Art_Lightning.md). Next art/content pass: richer music/SFX, additional enemy attack patterns, persistent card collection/socket UI, stagger, and more differentiated boss movement. These are not represented as implemented features. This release retains the existing procedural forest instead of claiming production Octopath-quality assets.
 
 ## Game speed
 

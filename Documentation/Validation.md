@@ -97,3 +97,9 @@ Unity compilation and Play Mode smoke suite passed (280 assertions, +4 new check
   - Modals: Pause menu (with new Language switch button), Draft boon selection (cards, categories, rarities, titles, descriptions), Support Runes overview, Character Status panel (with 6 attribute formulas), and Help guide.
   - Player preference persistence in `PlayerPrefs` (`"Umbra.Language"`).
 
+
+## Class sprites and targeted Mage lightning — 2026-09-26
+
+Fresh Play Mode compilation and smoke suite passed **313 checks** (26 additional checks). Coverage includes idle/walk sprite selection for all four classes, all three Mage runes, adjacent enemies receiving no splash damage, distinct victims, range, no arrow projectiles, cooldown, targeted Ember burning, no repeated victim with extra bolts, no-target cooldown preservation, paused casts, Chain remaining single-target, and effect cleanup. Original progression, combat and settlement checks passed.
+
+Inspected generated sheets for transparency and all four in-engine camera captures (`Recordings/Class-*.png`), including the Mage bolt landing on its target. Captures are synchronous within the smoke suite, so effects pending end-of-frame destruction from earlier guardian tests can appear in the background. Two earlier runs in the existing Play Mode session stopped at the pre-existing opening-horde-batch assertion; a fresh stopped/refreshed Play Mode run passed the complete suite. No claim of full-run balance validation or manual input playtesting. WebGL was not rebuilt or deployed.

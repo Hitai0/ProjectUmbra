@@ -131,7 +131,7 @@ namespace Umbra
                 Check(Mathf.Abs(TargetFov - DefaultZoomFov) < 0.01f, "zoom reset to default");
                 for(int i=0;i<100;i++)if(TrySpawnPosition(out var pos))Check(IsWalkable(pos)&&(pos-Player.position).sqrMagnitude>=64,"safe spawn "+i);
                 ClearCombat();RunTimer=0;hordeCursor=0;nextHordeSpawn=0;UpdateHorde(0);
-                Check(enemies.FindAll(enemy=>enemy.hp>0).Count==4,"opening horde batch");
+                Check(enemies.FindAll(enemy=>enemy.hp>0).Count==4,"opening horde batch: " + enemies.FindAll(enemy=>enemy.hp>0).Count + " time=" + Time.time + " camera=" + WorldCamera.transform.position + " aspect=" + WorldCamera.aspect);
                 for(int wave=0;wave<20;wave++){nextHordeSpawn=0;UpdateHorde(0);}
                 Check(enemies.FindAll(enemy=>enemy.hp>0).Count==18&&!enemies.Exists(enemy=>enemy.hp>0&&enemy.elite),"opening cap and elite gate");
                 enemies[0].root.position=Player.position+Vector3.right*50;
@@ -199,8 +199,19 @@ namespace Umbra
                 BaseLevel=10;
                 foreach(HeroClass kind in Enum.GetValues(typeof(HeroClass)))
                 {
-                    SelectClass(kind);StartRun();ApplyPerk(ActiveDraft[0]);attackAt=0;Check(TryAttack(Player.position+Vector3.forward*3),"class attack "+kind);FinishRun(false,"test");EnterCamp();
+                    SelectClass(kind);
+                    Check(playerSprite.sprite == classFrames[kind][0], "class sprite at camp " + kind);
+                    RefreshClassSprite(true);
+                    Check(playerSprite.sprite != classFrames[kind][0], "class walking sprite " + kind);
+                    StartRun();ApplyPerk(ActiveDraft[0]);
+                    SpawnEnemy(enemies[0],Player.position+Vector3.forward*3,1000);
+                    attackAt=0;Check(TryAttack(Player.position+Vector3.forward*3),"class attack "+kind);
+#if UNITY_EDITOR
+                    CaptureClassTestFrame(kind);
+#endif
+                    FinishRun(false,"test");EnterCamp();
                 }
+                RunLightningTests(Check);
                 Check(CombatRules.CritChance(999)<=.65f&&CombatRules.CooldownReduction(999)<=.5f,"stat caps");
                 complete("PASS: "+checks.Count+" checks; "+string.Join(", ",checks.FindAll(x=>!x.StartsWith("safe spawn "))));
             }

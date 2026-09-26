@@ -453,7 +453,7 @@ namespace Umbra
                 Box(new Rect(x + 20, y + 82, cardWidth - 40, 2), new Color(rarityColor.r, rarityColor.g, rarityColor.b, .35f));
 
                 var wrapStyle = new GUIStyle(text) { wordWrap = true, fontSize = 15, normal = { textColor = cream } };
-                GUI.Label(new Rect(x + 20, y + 100, cardWidth - 40, 220), Loc.PerkDescription(perk.Kind), wrapStyle);
+                GUI.Label(new Rect(x + 20, y + 100, cardWidth - 40, 220), Game.ClassPerkDescription(perk.Kind), wrapStyle);
 
                 string btnLabel = Game.IsMobile ? Loc.T("ACCEPT BOON","ยอมรับพลังนี้") : "[" + (i + 1) + "] " + Loc.T("ACCEPT BOON","ยอมรับพลังนี้");
                 if (Button(new Rect(x + 25, y + cardHeight - 65, cardWidth - 50, 44), btnLabel, true))
@@ -474,7 +474,7 @@ namespace Umbra
                 Label(x+17,385,"0"+(i+1)+"  /  "+Loc.T("SUPPORT RUNE","รูนสนับสนุน"),small,gold);
                 Label(x+17,414,Loc.RuneName(rune),heading);
                 var wrap=new GUIStyle(small){wordWrap=true};
-                GUI.Label(new Rect(x+17,446,215,53),Loc.RuneDescription(rune),wrap);
+                GUI.Label(new Rect(x+17,446,215,53),Game.ClassRuneDescription(rune),wrap);
                 if(Game.Phase==RunPhase.Camp){if(Button(new(x+17,508,214,33),Game.Rune==rune?Loc.T("EQUIPPED","สวมใส่อยู่"):Loc.T("EQUIP","สวมใส่"),Game.Rune==rune))Game.SetRune(rune);}
                 else Label(x+17,515,Game.Rune==rune?Loc.T("EQUIPPED","สวมใส่อยู่"):Loc.T("Available through boon draft","หาได้จากการสุ่มบูนในด่าน"),small,Game.Rune==rune?gold:muted,220);
             }

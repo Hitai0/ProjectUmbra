@@ -33,7 +33,7 @@ Menus pause combat. Losing focus pauses a run. Sound and soft focus can be toggl
 - At 5 minutes, enemy pressure increases. At 10 minutes a champion appears. At 14 minutes common enemies clear and a guardian locks the central arena. Defeat it before 15:00.
 - Death, timeout, or voluntary return ends the run. Earned XP and collected amber are banked once; victory adds a bounty. Uncollected ground shards are not banked. Closing/reloading the page mid-run abandons unsettled rewards.
 - Clear Amberfall to open Twilight Mire, then clear the Mire to open Ashfall Ridge. Classes unlock at Base Level 10 **or** the first guardian victory.
-- Novice, Archer, Mage and Swordsman share supports. Character art is reused in this prototype; attacks, modifiers and tint distinguish the classes.
+- Novice, Archer, Mage and Swordsman share supports. Each class has distinct character sprites. Mage basic attacks call single-target lightning from above; extra bolts select distinct foes.
 
 Saves are local to the browser/device and origin (Unity Editor has a separate save). Existing v0.1.4 XP, amber and legal stat allocations migrate automatically. No account or server is required.
 

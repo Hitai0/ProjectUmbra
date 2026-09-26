@@ -557,9 +557,13 @@ namespace Umbra
         void BuildActors()
         {
             rangerFrames=new[]{LoadSprite("ranger_idle"),LoadSprite("ranger_step1"),LoadSprite("ranger_step2")};
+            classFrames[HeroClass.Archer]=rangerFrames;
+            classFrames[HeroClass.Novice]=LoadClassSheet("novice_sheet");
+            classFrames[HeroClass.Mage]=LoadClassSheet("mage_sheet");
+            classFrames[HeroClass.Swordsman]=LoadClassSheet("swordsman_sheet");
             sproutSprite=LoadSprite("sprout"); mushroomSprite=LoadSprite("mushroom");
             Player=new GameObject("Wanderer • player").transform; Player.SetParent(transform); Player.position=new(0,0,-2);
-            Shadow(Player,.75f); playerSprite=SpriteActor(Player,rangerFrames[0]); actorVisual=playerSprite.transform;
+            Shadow(Player,.75f); playerSprite=SpriteActor(Player,rangerFrames[0]); actorVisual=playerSprite.transform; RefreshClassSprite();
             Vector3[] homes={new(3,0,2),new(-3,0,3),new(4,0,6),new(-3,0,8),new(1,0,13),new(6,0,-3),new(-5,0,-5),new(5,0,12)};
             for(int i=0;i<CombatRules.EnemyPoolSize;i++)
             {
@@ -808,9 +812,9 @@ namespace Umbra
             if(Time.time<dashUntil){direction=dashDirection;moving=true;}
             MovePlayer(direction*(Time.time<dashUntil?15:4.2f)*dt);
             if(moving) playerSprite.flipX=facing.x<-.05f;
-            playerSprite.sprite=moving?rangerFrames[1+(int)(elapsed*9)%2]:rangerFrames[0];
+            RefreshClassSprite(moving);
             actorVisual.localPosition=new(0,moving?Mathf.Abs(Mathf.Sin(elapsed*12))*.05f:0,0);
-            playerSprite.color=IsPlayerProtected(now)?new Color(.62f,1,1):Class==HeroClass.Mage?new Color(.82f,.80f,1):Class==HeroClass.Swordsman?new Color(1,.85f,.75f):Color.white;
+            playerSprite.color=IsPlayerProtected(now)?new Color(.62f,1,1):Color.white;
             UpdateHorde(dt); UpdateEnemies(dt);
             if(Phase!=RunPhase.Running){ClearIncomingDamage();return;}
             UpdateHazards(dt);
@@ -818,7 +822,7 @@ namespace Umbra
             if(Phase!=RunPhase.Running)return;
             UpdateShots(dt);
             if(Phase!=RunPhase.Running)return;
-            UpdateLoot(dt); UpdateRings();
+            UpdateLoot(dt); UpdateRings(); UpdateLightning();
             regenBank += CombatRules.HealthRegenPerSecond(VIT)*dt;
             int regen = Mathf.FloorToInt(regenBank);
             if(regen>0){Health=Mathf.Min(MaxHealth,Health+regen);regenBank-=regen;}
@@ -917,6 +921,7 @@ namespace Umbra
         public bool TryAttack(Vector3 point)
         {
             if(!CanAct||Time.time<attackAt)return false;
+            if(Class==HeroClass.Mage)return CastLightning(point);
             float speedMod = AttackSpeedMultiplier * (1f + CombatRules.AttackSpeedBonus(AGI)) * (Class==HeroClass.Archer?1.20f:1f);
             attackAt=Time.time+(CombatRules.AttackCooldown / speedMod);
             Vector3 dir=point-Player.position;dir.y=0;if(dir.sqrMagnitude<.01f)dir=facing;dir.Normalize();

@@ -42,7 +42,7 @@ namespace Umbra
         public static readonly string[] ClassDescriptions = {
             "Spirit arrows. Balanced and forgiving. Learn the trail.",
             "20% faster attacks. All projectile supports apply.",
-            "25% stronger hits. INT adds spell damage. Shared supports apply.",
+            "Targeted lightning from above. Extra shots strike distinct foes. INT boosts damage.",
             "Wide spirit slash. 20% less damage taken. Supports reshape its reach and impact."
         };
         public static readonly string[] MapDescriptions = {
@@ -119,7 +119,7 @@ namespace Umbra
         public void SelectClass(HeroClass kind)
         {
             if(Phase!=RunPhase.Camp||!Enum.IsDefined(typeof(HeroClass),kind)||(!ClassesUnlocked&&kind!=HeroClass.Novice))return;
-            Class=kind;SaveProfile();
+            Class=kind;RefreshClassSprite();SaveProfile();
         }
         public void BuySupplies()
         {
@@ -146,7 +146,7 @@ namespace Umbra
 
         public void EnterCamp()
         {
-            Phase=RunPhase.Camp;ClearCombat();
+            Phase=RunPhase.Camp;ClearCombat();RefreshClassSprite();
             hitGraceUntil=dashImmuneUntil=spawnImmuneUntil=0;
             Drafting=Paused=RunePanel=StatsPanel=HelpPanel=false;
             MaxHealthBonus=0;Health=MaxHealth;
@@ -169,6 +169,7 @@ namespace Umbra
         }
         void ClearCombat()
         {
+            ClearLightning();
             ClearIncomingDamage();
             if(arenaBoundary)Destroy(arenaBoundary.gameObject);
             if(activePillar){Destroy(activePillar);activePillar=null;}

@@ -29,8 +29,8 @@ namespace Umbra
                    "ศรวิญญาณ สมดุลและควบคุมง่าย เหมาะสำหรับเริ่มเรียนรู้เส้นทาง"),
             1 => T("20% faster attacks. All projectile supports apply.",
                    "โจมตีเร็วขึ้น 20% รองรับบัฟและกระสุนเสริมทุกชนิด"),
-            2 => T("25% stronger hits. INT adds spell damage. Shared supports apply.",
-                   "โจมตีแรงขึ้น 25% ค่า INT เพิ่มดาเมจเวท ใช้บัฟร่วมได้"),
+            2 => T("Targeted lightning from above. Extra shots strike distinct foes. INT boosts damage.",
+                   "เรียกสายฟ้าผ่ารายตัว ไม่มีระเบิดวงกว้าง เพิ่มกระสุนเพื่อผ่าหลายเป้าหมาย INT เพิ่มดาเมจ"),
             3 => T("Wide spirit slash. 20% less damage taken. Supports reshape its reach and impact.",
                    "ฟันดาบวิญญาณวงกว้าง ลดดาเมจที่ได้รับ 20% บัฟช่วยเพิ่มระยะและพลังฟัน"),
             _ => ""
