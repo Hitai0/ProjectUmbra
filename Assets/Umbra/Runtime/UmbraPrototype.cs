@@ -117,6 +117,41 @@ namespace Umbra
         int hordeCursor;
         float nextHordeSpawn = 2.5f, nextNovaPulse;
         readonly Vector3 cameraOffset = new(0, 18.5f, -15.5f);
+        public const float MinZoomFov = 24f;
+        public const float MaxZoomFov = 46f;
+        public const float DefaultZoomFov = 34f;
+        public const float ZoomStep = 2.2f;
+        public float TargetFov { get; private set; } = DefaultZoomFov;
+
+        public static float NormalizeScrollDelta(float scroll)
+        {
+            if (Mathf.Abs(scroll) < 0.001f) return 0f;
+            if (Mathf.Abs(scroll) >= 30f) return scroll / 120f;
+            if (Mathf.Abs(scroll) >= 2.5f && Mathf.Abs(scroll) <= 3.5f) return scroll / 3f;
+            return scroll;
+        }
+
+        public void ApplyZoomScroll(float rawScroll)
+        {
+            float deltaSteps = NormalizeScrollDelta(rawScroll);
+            if (Mathf.Abs(deltaSteps) > 0.001f)
+            {
+                deltaSteps = Mathf.Clamp(deltaSteps, -3f, 3f);
+                TargetFov = Mathf.Clamp(TargetFov - deltaSteps * ZoomStep, MinZoomFov, MaxZoomFov);
+            }
+        }
+
+        public void ResetZoom()
+        {
+            TargetFov = DefaultZoomFov;
+        }
+
+        public void SetZoom(float fov)
+        {
+            TargetFov = Mathf.Clamp(fov, MinZoomFov, MaxZoomFov);
+            if (WorldCamera != null) WorldCamera.fieldOfView = TargetFov;
+        }
+
         readonly Color gold = new(1f, .72f, .27f);
         readonly Color mint = new(.46f, .91f, .72f);
 
@@ -281,7 +316,8 @@ namespace Umbra
             cameraObject.tag = "MainCamera";
             WorldCamera = cameraObject.GetComponent<Camera>();
             WorldCamera.orthographic = false;
-            WorldCamera.fieldOfView = 34f;
+            WorldCamera.fieldOfView = DefaultZoomFov;
+            TargetFov = DefaultZoomFov;
             WorldCamera.nearClipPlane = .3f;
             WorldCamera.farClipPlane = 120;
             WorldCamera.backgroundColor = RenderSettings.fogColor;
@@ -792,12 +828,49 @@ namespace Umbra
         {
             if(!Ready)return;
             WorldCamera.transform.position=Vector3.Lerp(WorldCamera.transform.position,Player.position+cameraOffset,1-Mathf.Exp(-6*Time.deltaTime));
-            if(Mouse.current!=null&&!PointerOverHud())
-            {
-                float scroll=Mouse.current.scroll.ReadValue().y;
-                if(Mathf.Abs(scroll)>0.01f)WorldCamera.fieldOfView=Mathf.Clamp(WorldCamera.fieldOfView-scroll*.015f,24f,46f);
-            }
+            UpdateCameraZoom();
             if(dof!=null)dof.focusDistance.Override(Vector3.Distance(WorldCamera.transform.position,Player.position));
+        }
+
+        void UpdateCameraZoom()
+        {
+            if (WorldCamera == null) return;
+            if (Phase == RunPhase.Running && !IsModal)
+            {
+                var mouse = Mouse.current;
+                if (mouse != null)
+                {
+                    Vector2 mousePos = mouse.position.ReadValue();
+                    if (new Rect(0, 0, Screen.width, Screen.height).Contains(mousePos))
+                    {
+                        float scroll = mouse.scroll.ReadValue().y;
+                        if (Mathf.Abs(scroll) > 0.01f)
+                        {
+                            ApplyZoomScroll(scroll);
+                        }
+                        if (mouse.middleButton.wasPressedThisFrame)
+                        {
+                            ResetZoom();
+                        }
+                    }
+                }
+
+                var kb = Keyboard.current;
+                if (kb != null)
+                {
+                    float keyZoom = 0f;
+                    if (kb.equalsKey.isPressed || (kb.numpadPlusKey != null && kb.numpadPlusKey.isPressed)) keyZoom += 1f;
+                    if (kb.minusKey.isPressed || (kb.numpadMinusKey != null && kb.numpadMinusKey.isPressed)) keyZoom -= 1f;
+                    if (keyZoom != 0f)
+                    {
+                        TargetFov = Mathf.Clamp(TargetFov - keyZoom * 14f * Time.unscaledDeltaTime, MinZoomFov, MaxZoomFov);
+                    }
+                }
+            }
+
+            // Smoothly glide toward TargetFov independent of framerate and time scale
+            float t = 1f - Mathf.Exp(-14f * Time.unscaledDeltaTime);
+            WorldCamera.fieldOfView = Mathf.Lerp(WorldCamera.fieldOfView, TargetFov, t);
         }
         bool PointerOverHud()
         {

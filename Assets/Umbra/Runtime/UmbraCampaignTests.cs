@@ -38,7 +38,7 @@ namespace Umbra
                     Check(Vector2.Distance(hud.FromScreen(new Vector2(dodge.x,size.y-dodge.y)),
                         hud.Point(new Vector2(1430,730),1,1)) < .01f, "HUD touch alignment " + size);
                 }
-                EnterCamp();BaseLevel=1;STR=AGI=VIT=INT=DEX=LUK=1;StatPoints=0;ClearedMaps=0;Shards=0;SupplyRank=0;Class=HeroClass.Novice;SelectedMap=0;Rune=RuneKind.Pierce;
+                EnterCamp();BaseLevel=1;Language=GameLanguage.English;Loc.Current=GameLanguage.English;STR=AGI=VIT=INT=DEX=LUK=1;StatPoints=0;ClearedMaps=0;Shards=0;SupplyRank=0;Class=HeroClass.Novice;SelectedMap=0;Rune=RuneKind.Pierce;
                 Check(!MapUnlocked(1)&&!ClassesUnlocked,"progression gates");
                 Check(!TryAddStat(CombatRules.StatKind.STR),"no unearned stat points");
                 BaseLevel=3;StatPoints=6;Check(TryAddStat(CombatRules.StatKind.VIT)&&VIT==2&&StatPoints==5,"camp allocation");
@@ -115,6 +115,20 @@ namespace Umbra
                     Check(safe,"offscreen spawns aspect/FOV "+aspect+" / "+fov);
                 }
                 WorldCamera.aspect=savedAspect;WorldCamera.fieldOfView=savedFov;
+                SetZoom(DefaultZoomFov);
+                Check(Mathf.Abs(TargetFov - DefaultZoomFov) < 0.01f, "zoom initialized to default 34");
+                ApplyZoomScroll(120f);
+                Check(Mathf.Abs(TargetFov - (DefaultZoomFov - ZoomStep)) < 0.01f, "zoom in with raw 120 delta");
+                ApplyZoomScroll(-120f);
+                Check(Mathf.Abs(TargetFov - DefaultZoomFov) < 0.01f, "zoom out with raw -120 delta");
+                ApplyZoomScroll(1f);
+                Check(Mathf.Abs(TargetFov - (DefaultZoomFov - ZoomStep)) < 0.01f, "zoom in with normalized 1 delta");
+                ApplyZoomScroll(-3f);
+                Check(Mathf.Abs(TargetFov - DefaultZoomFov) < 0.01f, "zoom out with WebGL 3 line delta");
+                ApplyZoomScroll(1000f);
+                Check(TargetFov >= MinZoomFov && TargetFov <= MaxZoomFov, "zoom clamped at min FOV");
+                ResetZoom();
+                Check(Mathf.Abs(TargetFov - DefaultZoomFov) < 0.01f, "zoom reset to default");
                 for(int i=0;i<100;i++)if(TrySpawnPosition(out var pos))Check(IsWalkable(pos)&&(pos-Player.position).sqrMagnitude>=64,"safe spawn "+i);
                 ClearCombat();RunTimer=0;hordeCursor=0;nextHordeSpawn=0;UpdateHorde(0);
                 Check(enemies.FindAll(enemy=>enemy.hp>0).Count==4,"opening horde batch");
