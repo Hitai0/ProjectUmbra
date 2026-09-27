@@ -169,6 +169,7 @@ namespace Umbra
         }
         void ClearCombat()
         {
+            ClearParticleEffects();
             ClearLightning();
             ClearIncomingDamage();
             if(arenaBoundary)Destroy(arenaBoundary.gameObject);
@@ -186,6 +187,7 @@ namespace Umbra
         {
             if(Phase!=RunPhase.Running)return;
             Phase=RunPhase.Results;Won=victory;ResultReason=reason;
+            ClearParticleEffects();
             if(victory){ClearedMaps|=1<<SelectedMap;RunShards+=75*(SelectedMap+1);EarnedExperience+=100*(SelectedMap+1);}
             Shards+=RunShards;BaseExperience+=EarnedExperience;
             while(BaseLevel<99&&BaseExperience>=CombatRules.ExperienceToLevel(BaseLevel))
@@ -232,6 +234,7 @@ namespace Umbra
         public void RerollDraft(){if(!Drafting||Rerolls<=0)return;Rerolls--;DraftOpenedAt=Time.unscaledTime;ActiveDraft=RollDraft();PlayCue(0);}
         void CastNova()
         {
+            EmitSpirit(Player.position+Vector3.up*.35f,RuneParticleColor(Rune),42,5.5f,.65f,.20f,.25f);
             for(int i=0;i<12;i++)Fire(Quaternion.Euler(0,i*30,0)*Vector3.forward,Rune,Mathf.RoundToInt(AttackDamage*.8f));
             Pulse(Player.position,3.8f,mint,.5f);PlayCue(2);
         }
@@ -241,6 +244,11 @@ namespace Umbra
             reach+=HasSproutCard?.4f:0;
             float arc=Rune==RuneKind.Scatter?-.3f:.25f;int extra=BonusProjectiles;
             Pulse(Player.position+direction,reach,new(.5f,1f,.85f),.22f);
+            for(int i=0;i<5;i++)
+            {
+                Vector3 sweep=Quaternion.Euler(0,-55+i*27.5f,0)*direction;
+                EmitSpirit(Player.position+sweep*reach*.7f+Vector3.up*.65f,RuneParticleColor(Rune),3,.7f,.23f,.15f,.08f);
+            }
             foreach(var e in enemies)
             {
                 Vector3 delta=e.root.position-Player.position;

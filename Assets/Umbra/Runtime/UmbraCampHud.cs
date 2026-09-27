@@ -11,7 +11,7 @@ namespace Umbra
         }
         void DrawCamp()
         {
-            Box(Backdrop,new(.015f,.035f,.025f,.58f));
+            CampBackdrop();
             Label(85,44,"P R O J E C T   U M B R A",title,cream,1000);
             Label(87,91,Loc.T("THE WAYFARER'S CAMP    /    REST. REBUILD. RETURN.","แคมป์ผู้พเนจร    /    พักผ่อน. ฝึกฝน. หวนคืนสู่ป่า."),heading,gold,1000);
             if(Button(new(1040,50,135,38),Game.LanguageLabel))Game.ToggleLanguage();
@@ -60,6 +60,7 @@ namespace Umbra
         bool ShardsEnough()=>Game.SupplyRank<5&&Game.Shards>=Game.SupplyCost;
         void DrawResults()
         {
+            CampBackdrop();
             Box(Backdrop,new(.01f,.02f,.015f,.78f));
             Panel(new(400,120,800,650));
             Label(455,162,Game.Won?Loc.T("T H E   G R O V E   R E M E M B E R S","ป่ า ไ ม้ ยั ง ค ง จด จำ"):Loc.T("E V E R Y   P A T H   T E A C H E S","ทุ ก เ ส้ น ท า ง ม อ บ บ ท เ รี ย น"),heading,gold,700);

@@ -81,7 +81,7 @@ namespace Umbra
         {
             public Transform root;
             public Vector3 velocity;
-            public float expiry;
+            public float expiry, nextParticleAt;
             public int damage, remaining;
             public RuneKind rune;
             public bool isCrit;
@@ -103,7 +103,7 @@ namespace Umbra
         GameObject activePillar;
         Light activePillarLight;
         DepthOfField dof;
-        Mesh crownMesh;
+        Sprite woodlandOak;
         SpriteRenderer playerSprite;
         Sprite sproutSprite, mushroomSprite;
         Vector3 moveTarget, facing = Vector3.forward, dashDirection;
@@ -304,12 +304,12 @@ namespace Umbra
             world = new GameObject("Amberfall • environment").transform;
             world.SetParent(transform);
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(.66f, .62f, .52f);
-            RenderSettings.ambientEquatorColor = new Color(.46f, .42f, .28f);
-            RenderSettings.ambientGroundColor = new Color(.20f, .18f, .14f);
+            RenderSettings.ambientSkyColor = new Color(.64f, .70f, .76f);
+            RenderSettings.ambientEquatorColor = new Color(.43f, .48f, .43f);
+            RenderSettings.ambientGroundColor = new Color(.23f, .26f, .25f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(.48f, .42f, .32f);
+            RenderSettings.fogColor = new Color(.48f, .56f, .59f);
             RenderSettings.fogDensity = .011f;
             var cameraObject = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener), typeof(UniversalAdditionalCameraData));
             cameraObject.tag = "MainCamera";
@@ -330,8 +330,8 @@ namespace Umbra
             cameraData.volumeTrigger = cameraObject.transform;
             var sunlight = new GameObject("Late afternoon sun", typeof(Light)).GetComponent<Light>();
             sunlight.type = LightType.Directional;
-            sunlight.color = new Color(1f, .85f, .60f);
-            sunlight.intensity = 2.2f;
+            sunlight.color = new Color(1f, .91f, .74f);
+            sunlight.intensity = 1.65f;
             sunlight.shadows = LightShadows.Soft;
             sunlight.shadowStrength = .80f;
             sunlight.transform.rotation = Quaternion.Euler(38f, -44f, 0);
@@ -345,22 +345,22 @@ namespace Umbra
             tone.mode.Override(TonemappingMode.ACES);
 
             var wb = volume.profile.Add<WhiteBalance>();
-            wb.temperature.Override(20f);
+            wb.temperature.Override(5f);
             wb.tint.Override(-2f);
 
             var grading = volume.profile.Add<ColorAdjustments>();
-            grading.postExposure.Override(.22f);
-            grading.contrast.Override(26f);
-            grading.saturation.Override(24f);
+            grading.postExposure.Override(.18f);
+            grading.contrast.Override(12f);
+            grading.saturation.Override(-8f);
             grading.colorFilter.Override(new Color(1f, .96f, .89f));
 
             var smh = volume.profile.Add<ShadowsMidtonesHighlights>();
-            smh.shadows.Override(new Vector4(.22f, .18f, .14f, 0f));
-            smh.midtones.Override(new Vector4(1f, .95f, .86f, 0f));
-            smh.highlights.Override(new Vector4(1.06f, .95f, .78f, 0f));
+            smh.shadows.Override(new Vector4(.82f, .92f, 1.02f, 0f));
+            smh.midtones.Override(new Vector4(1f, .99f, .94f, 0f));
+            smh.highlights.Override(new Vector4(1.04f, 1f, .91f, 0f));
 
             var bloom = volume.profile.Add<Bloom>();
-            bloom.intensity.Override(.48f);
+            bloom.intensity.Override(.22f);
             bloom.threshold.Override(1.05f);
             bloom.scatter.Override(.70f);
             bloom.tint.Override(new Color(1f, .88f, .65f));
@@ -369,30 +369,28 @@ namespace Umbra
             dof.mode.Override(DepthOfFieldMode.Bokeh);
             dof.focusDistance.Override(24f);
             dof.focalLength.Override(65f);
-            dof.aperture.Override(2.8f);
+            dof.aperture.Override(5.6f);
 
             var vignette = volume.profile.Add<Vignette>();
-            vignette.intensity.Override(.28f);
+            vignette.intensity.Override(.19f);
             vignette.smoothness.Override(.70f);
             vignette.color.Override(new Color(.05f, .08f, .06f));
 
             var grain = volume.profile.Add<FilmGrain>();
             grain.type.Override(FilmGrainLookup.Medium1);
-            grain.intensity.Override(.08f);
-            crownMesh=MakeCrownMesh();
-            var ground=Mat("moss",new(.44f,.48f,.34f));
-            ground.mainTexture=Resources.Load<Texture2D>("Umbra/ground");ground.mainTextureScale=new Vector2(40,40);
+            grain.intensity.Override(.025f);
+            woodlandOak=LoadSprite("woodland_oak");
+            var ground=Mat("moss",new(.76f,.79f,.70f));
+            ground.mainTexture=Resources.Load<Texture2D>("Umbra/ground_meadow");ground.mainTextureScale=new Vector2(20,20);
             Shape("Forest floor", PrimitiveType.Cube, new(0, -.27f, 0), new(CombatRules.FieldHalfSize*2+40, .5f, CombatRules.FieldHalfSize*2+40), ground, pointerLayer:GroundPointerLayer);
             BuildGround();
-            var bark = Mat("bark", new(.23f, .15f, .095f));
-            Color[] leaves = { new(.88f, .44f, .12f), new(.96f, .58f, .14f), new(1.0f, .72f, .18f), new(.46f, .50f, .18f), new(.28f, .38f, .19f) };
             // Keep tall scenery outside the playable meadow so hordes remain readable.
             for (int i = 0; i < 80; i++)
             {
                 float edge=CombatRules.FieldHalfSize+Random.Range(4f,9f);
                 float along=Random.Range(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize);
                 Vector3 p=i%4==0?new(edge,0,along):i%4==1?new(-edge,0,along):i%4==2?new(along,0,edge):new(along,0,-edge);
-                Tree(p,Random.Range(2.8f,5.7f),bark,Mat("canopy"+i%5,leaves[i%5]));
+                Tree(p,Random.Range(2.8f,5.7f));
             }
             // Low decorative stones never obstruct movement or conceal enemies.
             for (int i = 0; i < 60; i++)
@@ -417,14 +415,14 @@ namespace Umbra
         {
             // Thousands of colored triangles in a few meshes rather than thousands of renderers.
             List<Vector3> verts = new(); List<int> tris = new(); List<Color> colors = new();
-            Color[] palette = { new(.32f,.42f,.18f), new(.46f,.46f,.20f), new(.24f,.34f,.15f), new(.68f,.45f,.16f), new(.78f,.52f,.18f), new(.58f,.32f,.14f) };
-            for (int i = 0; i < 16000; i++)
+            Color[] palette = { new(.32f,.40f,.27f), new(.44f,.47f,.32f), new(.24f,.34f,.25f), new(.53f,.49f,.34f), new(.59f,.55f,.39f), new(.40f,.35f,.26f) };
+            for (int i = 0; i < 4500; i++)
             {
                 float x = Random.Range(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize), z = Random.Range(-CombatRules.FieldHalfSize,CombatRules.FieldHalfSize);
                 float path = Mathf.Sin(z * .15f) * 2;
                 bool onRoad = Mathf.Abs(x - path) < 1.5f;
                 Color c = onRoad ? new Color(.42f,.35f,.23f) : palette[Random.Range(0,palette.Length)];
-                float s = onRoad ? Random.Range(.035f,.09f) : Random.Range(.055f,.16f);
+                float s = onRoad ? Random.Range(.035f,.09f) : Random.Range(.025f,.07f);
                 int n = verts.Count;
                 verts.Add(new(x-s,.008f,z-s)); verts.Add(new(x,.008f,z+s)); verts.Add(new(x+s,.008f,z-s));
                 tris.Add(n); tris.Add(n+1); tris.Add(n+2);
@@ -432,7 +430,7 @@ namespace Umbra
                 if (!onRoad && i % 2 == 0)
                 {
                     n = verts.Count;
-                    float h = Random.Range(.08f,.22f);
+                    float h = Random.Range(.05f,.13f);
                     verts.Add(new(x-s*.2f,.012f,z)); verts.Add(new(x,h,z)); verts.Add(new(x+s*.2f,.012f,z));
                     tris.Add(n); tris.Add(n+1); tris.Add(n+2);
                     colors.Add(c*.82f); colors.Add(c*1.15f); colors.Add(c*.82f);
@@ -449,34 +447,17 @@ namespace Umbra
 
         }
 
-        void Tree(Vector3 p, float height, Material bark, Material foliage)
+        void Tree(Vector3 p, float height)
         {
             var root = new GameObject("Amber oak").transform; root.SetParent(world); root.position = p;
-            Shape("Trunk",PrimitiveType.Cylinder,new(0,height*.35f,0),new(.36f,height*.35f,.36f),bark,root,pointerLayer:BlockerPointerLayer);
-            for (int b = 0; b < 3; b++)
-            {
-                var branch = Shape("Branch",PrimitiveType.Cylinder,new((b-1)*.32f,height*.53f,0),new(.12f,height*.18f,.12f),bark,root);
-                branch.transform.localRotation = Quaternion.Euler(0,0,(b-1)*-32);
-            }
-            for (int j = 0; j < 16; j++)
-            {
-                Vector3 offset = new(Random.Range(-1.05f,1.05f),height*.70f + Random.Range(-.5f,.8f),Random.Range(-.9f,.9f));
-                float s = height * Random.Range(.20f,.31f);
-                var crown = new GameObject("Foliage",typeof(MeshFilter),typeof(MeshRenderer));
-                crown.transform.SetParent(root,false);crown.transform.localPosition=offset;crown.transform.localScale=new(s,s*.85f,s);
-                crown.GetComponent<MeshFilter>().sharedMesh=crownMesh;crown.GetComponent<MeshRenderer>().sharedMaterial=foliage;
-                crown.transform.localRotation = Random.rotation;
-            }
+            var sprite=SpriteActor(root,woodlandOak,height*1.65f/woodlandOak.bounds.size.y);
+            var canopy=Mat("canopy sprite",Color.white,true);
+            canopy.shader=sprite.sharedMaterial.shader;sprite.sharedMaterial=canopy;
+            sprite.flipX=Random.value>.5f;
+            var trunk=root.gameObject.AddComponent<CapsuleCollider>();
+            root.gameObject.layer=BlockerPointerLayer;trunk.radius=.35f;trunk.height=height;
+            trunk.center=Vector3.up*height*.5f;
             obstacles.Add(new(p.x,.48f,p.z));
-        }
-
-        Mesh MakeCrownMesh()
-        {
-            var vertices=new List<Vector3>();var triangles=new List<int>();
-            Vector3 P(int lat,int lon){float a=Mathf.PI*lat/5;float b=Mathf.PI*2*lon/8;return new Vector3(Mathf.Sin(a)*Mathf.Cos(b),Mathf.Cos(a),Mathf.Sin(a)*Mathf.Sin(b))*.6f;}
-            void Tri(Vector3 a,Vector3 b,Vector3 c){int n=vertices.Count;vertices.Add(a);vertices.Add(b);vertices.Add(c);triangles.Add(n);triangles.Add(n+1);triangles.Add(n+2);}
-            for(int lat=0;lat<5;lat++)for(int lon=0;lon<8;lon++){Tri(P(lat,lon),P(lat,lon+1),P(lat+1,lon));Tri(P(lat,lon+1),P(lat+1,lon+1),P(lat+1,lon));}
-            var mesh=new Mesh{name="Faceted leaf cluster"};mesh.SetVertices(vertices);mesh.SetTriangles(triangles,0);mesh.RecalculateNormals();owned.Add(mesh);return mesh;
         }
 
         void BuildRuins()
@@ -514,24 +495,23 @@ namespace Umbra
             for (int i=0;i<13;i++) Shape("Footbridge plank",PrimitiveType.Cube,new(9.7f+i*.37f,.12f,3),new(.34f,.2f,2.2f),wood);
         }
 
-        void BuildMotes()
-        {
-            var go = new GameObject("Windblown amber motes",typeof(ParticleSystem));
-            go.transform.position = new(0,4,0);
-            var ps = go.GetComponent<ParticleSystem>(); ps.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main=ps.main; main.startLifetime=12; main.startSpeed=.1f; main.startSize=.045f; main.startColor=new Color(1,.76f,.32f,.7f); main.maxParticles=180; main.simulationSpace=ParticleSystemSimulationSpace.World;
-            var emission=ps.emission; emission.rateOverTime=12;
-            var shape=ps.shape; shape.shapeType=ParticleSystemShapeType.Box; shape.scale=new(28,6,24);
-            var velocity=ps.velocityOverLifetime; velocity.enabled=true; velocity.x=.15f; velocity.y=-.10f; velocity.z=.06f;
-            var renderer=go.GetComponent<ParticleSystemRenderer>(); renderer.sharedMaterial=Mat("mote light",new Color(1,.78f,.35f),true);
-            ps.Play();
-        }
+        void BuildMotes() => BuildParticleEffects();
 
-        Sprite LoadSprite(string name)
+        Sprite LoadSprite(string name, float worldHeight=0)
         {
             var tex=Resources.Load<Texture2D>("Umbra/"+name);
             if (!tex) throw new InvalidOperationException("Missing generated art: "+name);
-            var sprite=Sprite.Create(tex,new Rect(0,0,tex.width,tex.height),new Vector2(.5f,.05f),24);
+            var rect=new Rect(0,0,tex.width,tex.height);
+            if(worldHeight>0)
+            {
+                // Normalize visible art, not its transparent canvas, to the existing combat scale.
+                var pixels=tex.GetPixels32();int bottom=tex.height,top=-1;
+                for(int y=0;y<tex.height;y++)for(int x=0;x<tex.width;x++)
+                    if(pixels[y*tex.width+x].a>32){bottom=Mathf.Min(bottom,y);top=Mathf.Max(top,y);}
+                if(top<bottom)throw new InvalidOperationException("Empty creature sprite: "+name);
+                rect=new Rect(0,bottom,tex.width,top-bottom+1);
+            }
+            var sprite=Sprite.Create(tex,rect,new Vector2(.5f,worldHeight>0?0:.05f),worldHeight>0?rect.height/worldHeight:24);
             owned.Add(sprite); return sprite;
         }
         SpriteRenderer SpriteActor(Transform root, Sprite sprite, float scale=1)
@@ -559,7 +539,7 @@ namespace Umbra
             classFrames[HeroClass.Novice]=LoadClassSheet("novice_sheet");
             classFrames[HeroClass.Mage]=LoadClassSheet("mage_sheet");
             classFrames[HeroClass.Swordsman]=LoadClassSheet("swordsman_sheet");
-            sproutSprite=LoadSprite("sprout"); mushroomSprite=LoadSprite("mushroom");
+            sproutSprite=LoadSprite("sprout_hd",34f/24f); mushroomSprite=LoadSprite("mushroom_hd",36f/24f);
             Player=new GameObject("Wanderer • player").transform; Player.SetParent(transform); Player.position=new(0,0,-2);
             Shadow(Player,.75f); playerSprite=SpriteActor(Player,classFrames[Class][0]); actorVisual=playerSprite.transform; RefreshClassSprite();
             Vector3[] homes={new(3,0,2),new(-3,0,3),new(4,0,6),new(-3,0,8),new(1,0,13),new(6,0,-3),new(-5,0,-5),new(5,0,12)};
@@ -809,6 +789,7 @@ namespace Umbra
             bool moving=direction.sqrMagnitude>.01f;
             if(Time.time<dashUntil){direction=dashDirection;moving=true;}
             MovePlayer(direction*(Time.time<dashUntil?15:4.2f)*dt);
+            UpdateParticleEffects(dt);
             if(moving) playerSprite.flipX=facing.x<-.05f;
             RefreshClassSprite(moving);
             actorVisual.localPosition=new(0,moving?Mathf.Abs(Mathf.Sin(elapsed*12))*.05f:0,0);
@@ -956,6 +937,7 @@ namespace Umbra
             float cdr = CombatRules.CooldownReduction(INT);
             dashAt=Time.time+CombatRules.DashCooldown*(1f-cdr);
             dashUntil=Time.time+.18f;dashImmuneUntil=Mathf.Max(dashImmuneUntil,Time.time+.28f);dashDirection=facing;
+            EmitSpirit(Player.position+Vector3.up*.15f,SpiritSage,14,1.4f,.35f,.16f,.3f);
             Pulse(Player.position,1,mint,.28f);return true;
         }
         public bool TryHeal()
@@ -965,6 +947,7 @@ namespace Umbra
             healAt=Time.time+CombatRules.HealCooldown*(1f-cdr);
             int restored=Mathf.Min(MaxHealth-Health,Mathf.RoundToInt(MaxHealth*.30f));
             Health+=restored;PlayCue(2);
+            EmitSpirit(Player.position+Vector3.up*.15f,SpiritSage,32,1.1f,1.1f,.22f,.8f,true);
             Popup(Player.position+Vector3.up,"+"+restored,mint);Pulse(Player.position,2,mint,.6f);return true;
         }
         public Enemy FindNearestEnemy(Vector3 origin, float maxDistance)
@@ -1052,6 +1035,11 @@ namespace Umbra
             for(int i=shots.Count-1;i>=0;i--)
             {
                 Shot s=shots[i];Vector3 before=s.root.position;Vector3 after=before+s.velocity*dt;s.root.position=after;
+                if(Time.time>=s.nextParticleAt)
+                {
+                    s.nextParticleAt=Time.time+.04f;
+                    EmitSpirit(Vector3.Lerp(before,after,.5f),RuneParticleColor(s.rune),2,.08f,.22f,.10f,.035f);
+                }
                 foreach(var e in enemies)
                 {
                     if(e.hp<=0||!e.root.gameObject.activeSelf||s.hit.Contains(e))continue;
@@ -1071,7 +1059,9 @@ namespace Umbra
         {
             if(Phase!=RunPhase.Running||e.hp<=0)return;e.hp-=Mathf.Max(0,damage);e.flashUntil=Time.time+.12f;
             Popup(e.root.position+Vector3.up*1.2f,isCrit?"CRIT! "+damage:damage.ToString(),isCrit?new Color(1f,.88f,.25f):gold);
+            if(damage>0)EmitSpirit(e.root.position+Vector3.up*.7f,isCrit?SpiritGold:RuneParticleColor(Rune),isCrit?12:5,isCrit?2.7f:1.5f,.35f,isCrit?.19f:.12f);
             if(e.hp>0)return;
+            EmitSpirit(e.root.position+Vector3.up*.45f,SpiritGold,e.elite?24:12,2.2f,.7f,.18f,.3f);
             e.hp=0;
             e.root.gameObject.SetActive(false);e.windupUntil=0;Kills++;
             if(e.boss){FinishRun(true,"The guardian has fallen");return;}
@@ -1103,6 +1093,7 @@ namespace Umbra
             if(activePillar!=null)Destroy(activePillar);
             if(activePillarLight!=null)Destroy(activePillarLight.gameObject);
 
+            EmitSpirit(Player.position+Vector3.up*.2f,SpiritGold,64,1.7f,1.15f,.22f,1.1f,true,true);
             Pulse(Player.position, 3.8f, new Color(1f, 0.85f, 0.32f), 0.6f);
             Popup(Player.position + Vector3.up * 2.2f, "★ LEVEL UP! ★", new Color(1f, 0.92f, 0.38f));
 
@@ -1199,7 +1190,7 @@ namespace Umbra
                     p = Vector3.MoveTowards(p, target, dt * (12f + (PickupRadius - dist) * 4f));
                 }
                 l.root.position=p;
-                if(dist<1.35f){int s=l.shards>0?l.shards:3;int x=l.exp>0?l.exp:10;RunShards+=s;AwardRunExperience(x);Collected++;Popup(Player.position+Vector3.up,"+"+s+" amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
+                if(dist<1.35f){int s=l.shards>0?l.shards:3;int x=l.exp>0?l.exp:10;RunShards+=s;EmitSpirit(Player.position+Vector3.up*.55f,SpiritGold,5,.65f,.4f,.12f,.2f,true);AwardRunExperience(x);Collected++;Popup(Player.position+Vector3.up,"+"+s+" amber",gold);Destroy(l.root.gameObject);loot.RemoveAt(i);}
             }
         }
         public void Notify(string message){Notice=message;NoticeUntil=Time.unscaledTime+4;}
@@ -1241,6 +1232,7 @@ namespace Umbra
         void SaveCollection() => SaveProfile();
         void OnDestroy()
         {
+            ClearParticleEffects();
             Time.timeScale=1;
             if(activePillar)Destroy(activePillar);
             if(activePillarLight)Destroy(activePillarLight.gameObject);

@@ -80,6 +80,7 @@ namespace Umbra
 
         void ShowLightning(Vector3 position)
         {
+            EmitSpirit(position+Vector3.up*.65f,SpiritIce,14,2.4f,.4f,.16f,.15f);
             var go = new GameObject("Targeted lightning", typeof(LineRenderer));
             go.transform.SetParent(transform);
             var line = go.GetComponent<LineRenderer>();

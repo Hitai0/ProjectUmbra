@@ -7,6 +7,15 @@ namespace Umbra
     public sealed partial class UmbraPrototype
     {
 #if UNITY_EDITOR
+        public void PreviewArtDirection(bool forestEdge)
+        {
+            // Start a live art review with the real HUD and no profile writes.
+            suppressSave=true;EnterCamp();SelectedMap=0;StartRun();ApplyPerk(ActiveDraft[0]);ClearCombat();
+            Player.position=forestEdge?new Vector3(70,0,73):new Vector3(0,0,-2);
+            WorldCamera.transform.position=Player.position+cameraOffset;
+            SpawnEnemy(enemies[0],Player.position+new Vector3(-3,0,3),100);
+            SpawnEnemy(enemies[1],Player.position+new Vector3(3,0,4),100);
+        }
         public void PreviewGuardian()
         {
             suppressSave=true;EnterCamp();SelectedMap=0;StartRun();ApplyPerk(ActiveDraft[0]);
@@ -231,6 +240,7 @@ namespace Umbra
                     FinishRun(false,"test");EnterCamp();
                 }
                 RunLightningTests(Check);
+                RunParticleTests(Check);
                 Check(CombatRules.CritChance(999)<=.65f&&CombatRules.CooldownReduction(999)<=.5f,"stat caps");
                 complete("PASS: "+checks.Count+" checks; "+string.Join(", ",checks.FindAll(x=>!x.StartsWith("safe spawn "))));
             }

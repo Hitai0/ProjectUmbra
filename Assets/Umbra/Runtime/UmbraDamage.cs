@@ -134,6 +134,7 @@ namespace Umbra
                 }
 
                 PlayCue(1);
+                EmitSpirit(Player.position+Vector3.up*.8f,new Color(1.3f,.46f,.28f,.8f),14,2.1f,.35f,.15f);
                 Popup(Player.position + Vector3.up * 1.6f, "-" + applied, new Color(1, .4f, .3f));
 
                 if (Health == 0)

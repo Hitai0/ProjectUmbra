@@ -38,14 +38,15 @@ namespace Umbra
     {
         public UmbraPrototype Game;
         GUIStyle text, small, title, number, button, centered, damage, heading;
-        Texture2D circleTex;
-        readonly Color cream=new(.93f,.88f,.73f), gold=new(.77f,.60f,.31f), muted=new(.60f,.65f,.57f), mint=new(.42f,.79f,.63f);
+        Texture2D circleTex, campVista;
+        readonly Color cream=new(.94f,.89f,.77f), gold=new(.76f,.62f,.38f), muted=new(.68f,.69f,.61f), mint=new(.57f,.73f,.57f);
         HudLayout layout;
         void Anchor(float x, float y) => GUI.matrix = layout.Matrix(x, y);
         Rect Backdrop => new Rect(-layout.Extra.x / 2, -layout.Extra.y / 2, layout.Width, layout.Height);
         void Styles()
         {
             if(text!=null)return;
+            campVista=Resources.Load<Texture2D>("Umbra/camp_vista");
             Font font=Resources.Load<Font>("Umbra/Fonts/tahoma")??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text=new GUIStyle{font=font,fontSize=17,normal={textColor=cream}};
             small=new GUIStyle(text){fontSize=12};
@@ -71,9 +72,35 @@ namespace Umbra
         void Box(Rect r,Color c){GUI.color=c;GUI.DrawTexture(r,Texture2D.whiteTexture);GUI.color=Color.white;}
         void Panel(Rect r)
         {
-            Box(new Rect(r.x-1,r.y-1,r.width+2,r.height+2),new Color(gold.r,gold.g,gold.b,.7f));
-            Box(r,new Color(.045f,.075f,.062f,.94f));
-            Box(new Rect(r.x+5,r.y+5,r.width-10,1),new Color(gold.r,gold.g,gold.b,.22f));
+            Box(new(r.x+3,r.y+5,r.width,r.height),new(0,0,0,.35f));
+            Box(r,new(.055f,.065f,.057f,.94f));
+            Frame(r,gold*.8f);
+            Frame(new(r.x+4,r.y+4,r.width-8,r.height-8),new(gold.r,gold.g,gold.b,.28f));
+            for(int corner=0;corner<4;corner++)
+            {
+                float x=corner%2==0?r.x+7:r.xMax-7,y=corner<2?r.y+7:r.yMax-7;
+                float sx=x<r.center.x?1:-1,sy=y<r.center.y?1:-1;
+                Box(new(Mathf.Min(x,x+sx*13),y,14,2),gold);
+                Box(new(x,Mathf.Min(y,y+sy*13),2,14),gold);
+                Diamond(new(x+sx*4,y+sy*4),3,gold);
+            }
+        }
+        void Frame(Rect r,Color c)
+        {
+            Box(new(r.x,r.y,r.width,1),c);Box(new(r.x,r.yMax-1,r.width,1),c);
+            Box(new(r.x,r.y,1,r.height),c);Box(new(r.xMax-1,r.y,1,r.height),c);
+        }
+        void Diamond(Vector2 p,float size,Color c)
+        {
+            var matrix=GUI.matrix;GUIUtility.RotateAroundPivot(45,p);
+            Box(new(p.x-size*.5f,p.y-size*.5f,size,size),c);GUI.matrix=matrix;
+        }
+        void CampBackdrop()
+        {
+            if(campVista)GUI.DrawTexture(Backdrop,campVista,ScaleMode.ScaleAndCrop);
+            Box(Backdrop,new(.025f,.035f,.032f,.30f));
+            Box(new(Backdrop.x,0,Backdrop.width,130),new(.035f,.045f,.038f,.82f));
+            Box(new(Backdrop.x,755,Backdrop.width,145),new(.035f,.045f,.038f,.88f));
         }
         void Label(float x,float y,string value,GUIStyle style=null,Color? color=null,float width=500)
         {
@@ -81,8 +108,10 @@ namespace Umbra
         }
         bool Button(Rect r,string value,bool active=false)
         {
-            Box(r,active?new Color(.23f,.30f,.20f,.96f):new Color(.085f,.13f,.11f,.95f));
-            Box(new Rect(r.x,r.y+r.height-2,r.width,2),active?gold:new Color(.22f,.27f,.20f));
+            bool hover=GUI.enabled&&r.Contains(Event.current.mousePosition);
+            Box(r,active?new Color(.25f,.29f,.19f,.98f):hover?new Color(.19f,.22f,.17f,.98f):new Color(.09f,.115f,.10f,.96f));
+            Frame(r,active||hover?gold:new Color(.36f,.32f,.23f));
+            Box(new(r.x+4,r.y+3,r.width-8,1),new(gold.r,gold.g,gold.b,active?.45f:.15f));
             return GUI.Button(r,value,button);
         }
         void Bar(float x,float y,float width,float fraction,Color color)

@@ -41,8 +41,16 @@ namespace Umbra.Editor
                 else if(command=="web")BuildWeb();
                 else if(command=="test")RunSmokeTests();
                 else if(command=="capture")Capture();
+                else if(command=="capture-ui")ScreenCapture.CaptureScreenshot("Recordings/ArtDirection-UI.png");
                 else if(command=="diag")Diag();
                 else if(command=="boss-preview")UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>()?.PreviewGuardian();
+                else if(command=="art-preview")UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>()?.PreviewArtDirection(false);
+                else if(command=="art-edge-preview")UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>()?.PreviewArtDirection(true);
+                else if(command=="particles-preview")
+                {
+                    var game=UnityEngine.Object.FindFirstObjectByType<UmbraPrototype>();
+                    if(game)game.StartCoroutine(game.PreviewParticles());
+                }
                 else if(command=="refresh")AssetDatabase.Refresh();
             }
             catch(Exception e){File.WriteAllText(".umbra-error",e.ToString());Debug.LogException(e);}
@@ -222,12 +230,32 @@ namespace Umbra.Editor
 
     public sealed class UmbraTextureImporter : AssetPostprocessor
     {
+        public override uint GetVersion()=>2;
         void OnPreprocessTexture()
         {
             if(!assetPath.StartsWith("Assets/Umbra/Resources/Umbra/"))return;
             var importer=(TextureImporter)assetImporter;importer.textureType=TextureImporterType.Default;
             importer.filterMode=FilterMode.Point;importer.textureCompression=TextureImporterCompression.Uncompressed;
             importer.mipmapEnabled=false;importer.alphaIsTransparency=true;importer.npotScale=TextureImporterNPOTScale.None;
+            if(assetPath.EndsWith("ground_meadow.png"))
+            {
+                importer.wrapMode=TextureWrapMode.Repeat;
+                importer.mipmapEnabled=true;
+                importer.filterMode=FilterMode.Bilinear;
+                importer.alphaIsTransparency=false;
+            }
+            else if(assetPath.EndsWith("camp_vista.png"))importer.wrapMode=TextureWrapMode.Clamp;
+            else if(assetPath.EndsWith("_hd.png"))
+            {
+                importer.isReadable=true;
+                importer.maxTextureSize=512;
+                importer.wrapMode=TextureWrapMode.Clamp;
+            }
+            else if(assetPath.EndsWith("woodland_oak.png"))
+            {
+                importer.maxTextureSize=1024;
+                importer.wrapMode=TextureWrapMode.Clamp;
+            }
         }
     }
 }

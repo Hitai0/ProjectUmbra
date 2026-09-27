@@ -1,5 +1,15 @@
 # Validation — v0.2.4
 
+## Spirit particles — 2026-09-27
+
+Fresh compilation and Play Mode smoke tests passed **338 checks** (+9 particle checks). Verified the bounded shared pools, scaled combat/unscaled celebration clocks, supported particle shader, isolated cosmetic RNG, per-frame emission cap and clearing on combat reset. Inspected the real skill screenshot with Mend/Nova, lightning impact and pickup sparks. The draft screenshot covers the level-up particles, so it is not a clear visual validation of that burst. See `Particle_Effects.md` for hooks, limits and capture paths. No WebGL rebuild or device performance profiling was performed.
+
+## HD-2D art direction — 2026-09-27
+
+Fresh Unity compilation and Play Mode smoke suite passed **329 checks** after the terrain, lighting, UI, tree and creature replacements. Inspected actual camp and live-combat UI captures (`Recordings/ArtDirection-Camp.png`, `ArtDirection-Combat.png`, `ArtDirection-Forest.png`) and the updated Archer combat capture. Verified opaque landscape/terrain and transparent sprite rendering, readable panel text, visible creature feet/scale, and perimeter tree rendering. Terrain import uses mipmaps and bilinear sampling; creatures use alpha-normalized world heights and retain existing combat profiles. Preview commands suppress profile writes and run live combat.
+
+See `Art_Direction.md` for asset paths, generation prompts and implementation choices. This pass retains the open meadow and existing class sheets; it does not implement the reference board's village, castle level or inventory systems. No full-run performance profiling, mobile device check or WebGL rebuild/deployment was performed.
+
 ## Slower run and permanent progression — 2026-09-27
 
 Unity compilation and a fresh Play Mode smoke suite passed **329 checks**. Run XP thresholds are doubled; permanent thresholds now start at 300 XP and grow quadratically. Updated the first-draft boundary test to 28 common pickups. Eight additional checks cover the permanent threshold across successive runs, temporary reset, delayed settlement, multiple earned drafts, XP overflow, stat-point awards and duplicate settlement rejection. Save writes remain suppressed by the suite.
