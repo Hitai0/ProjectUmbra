@@ -157,9 +157,9 @@ namespace Umbra
                 RunTimer=120;UpdateRunDirector(0);
                 Check(miniSpawned&&enemies[enemies.Count-1].hp==900,"two minute champion");
                 ClearCombat();RunTimer=0;
-                int beforeRunLevel=RunLevel;AwardRunExperience(130);
-                Check(RunLevel==beforeRunLevel&&!Drafting,"thirteen common pickups do not trigger draft");
-                AwardRunExperience(10);Check(RunLevel==beforeRunLevel+1&&Drafting,"fourteenth common pickup triggers draft");
+                int beforeRunLevel=RunLevel;AwardRunExperience(270);
+                Check(RunLevel==beforeRunLevel&&!Drafting,"twenty-seven common pickups do not trigger draft");
+                AwardRunExperience(10);Check(RunLevel==beforeRunLevel+1&&Drafting&&RunExperience==0,"twenty-eighth common pickup triggers draft");
                 while(Drafting)ApplyPerk(ActiveDraft[0]);
                 Health=MaxHealth;invulnerableUntil=0;HurtPlayer(CombatRules.EnemyDamage(false,0,0));
                 // Earlier random drafts may grant Iron Bark; compare against the actual armor state.
@@ -168,7 +168,7 @@ namespace Umbra
                 var e=enemies[0];SpawnEnemy(e,Player.position+Vector3.forward*2,48);int xp=EarnedExperience;DamageEnemy(e,999);
                 Check(Kills==1&&!e.root.gameObject.activeSelf&&EarnedExperience==xp,"no XP on monster death");
                 Player.position=e.root.position;UpdateLoot(0);Check(RunShards==3&&Shards==0&&EarnedExperience>xp,"amber pickup grants XP and shards");
-                int permanentLevel=BaseLevel;AwardRunExperience(200);Check(RunLevel>1&&BaseLevel==permanentLevel&&Drafting,"separate run progression");
+                int permanentLevel=BaseLevel;AwardRunExperience(CombatRules.RunExperienceToLevel(RunLevel)-RunExperience);Check(RunLevel==beforeRunLevel+2&&BaseLevel==permanentLevel&&Drafting,"separate run progression");
                 while(Drafting)ApplyPerk(ActiveDraft[0]);
                 var e2=enemies[1];SpawnEnemy(e2,Player.position+Vector3.forward*1.5f,48);TriggerLevelUp();
                 Check((e2.root.position-Player.position).magnitude>=3.49f,"level up safety knockback");
@@ -196,6 +196,23 @@ namespace Umbra
                     DamageEnemy(boss,100000);Check(Won&&Phase==RunPhase.Results&&RunShards==75*(map+1),"guardian victory and bounty "+map);EnterCamp();
                 }
                 SelectMap(0);StartRun();ApplyPerk(ActiveDraft[0]);RunTimer=900;UpdateRunDirector(0);Check(Phase==RunPhase.Results&&!Won,"15 minute hard limit");EnterCamp();
+                BaseLevel=1;BaseExperience=0;StatPoints=0;
+                StartRun();ApplyPerk(ActiveDraft[0]);AwardRunExperience(590);FinishRun(false,"progression threshold");
+                Check(BaseLevel==1&&BaseExperience==295&&StatPoints==0,"59 common pickups stay below first permanent level");
+                EnterCamp();StartRun();ApplyPerk(ActiveDraft[0]);
+                Check(RunLevel==1&&RunExperience==0&&EarnedExperience==0,"new run resets temporary progression");
+                AwardRunExperience(10);Check(BaseLevel==1&&BaseExperience==295,"permanent XP waits for settlement");
+                FinishRun(false,"progression threshold");
+                Check(BaseLevel==2&&BaseExperience==0&&StatPoints==3,"60th common pickup earns first permanent level across runs");
+                EnterCamp();StartRun();ApplyPerk(ActiveDraft[0]);AwardRunExperience(2000);
+                Check(RunLevel==4&&RunExperience==720&&Drafting,"bulk run XP retains overflow across levels");
+                int queuedDraftCount=0;while(Drafting&&queuedDraftCount<10){ApplyPerk(ActiveDraft[0]);queuedDraftCount++;}
+                Check(queuedDraftCount==3&&!Drafting,"bulk run XP grants exactly one draft per level");
+                FinishRun(false,"progression overflow");
+                Check(BaseLevel==4&&BaseExperience==25&&StatPoints==9,"permanent settlement retains overflow and awards stat points");
+                FinishRun(false,"duplicate progression settlement");
+                Check(BaseLevel==4&&BaseExperience==25&&StatPoints==9,"permanent progression settles only once");
+                EnterCamp();
                 Shards=60;SupplyRank=0;BuySupplies();Check(SupplyRank==1&&Shards==0,"camp shard sink");
                 BaseLevel=10;
                 foreach(HeroClass kind in Enum.GetValues(typeof(HeroClass)))

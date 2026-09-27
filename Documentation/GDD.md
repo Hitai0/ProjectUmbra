@@ -6,9 +6,9 @@ This replaces the earlier MMO and open-ended horde assumptions. The current targ
 
 Permanent Base Level preserves RO-style identity: each level grants 3 points in STR / AGI / VIT / INT / DEX / LUK. Allocation and unlimited free reset happen at camp. There is no Job XP and no Zeny. Amber buys five camp-supply ranks (+5 HP each; 60/120/180/240/300 amber).
 
-Run Level resets each expedition and drives boon drafts, starting with a free opening choice. Separating it from Base Level keeps draft cadence the same for veterans and new characters. Run XP thresholds are 140 + 60 × (run level − 1) + 8 × (run level − 1)². Regular enemies drop amber yielding 10 run XP / 5 permanent XP and 3 amber upon collection; elites drop amber yielding 30 / 15 and 9 amber. Killing monsters does not directly grant XP—XP is acquired exclusively by collecting amber shards. XP earned in a run and collected amber settle once on victory, defeat, timeout or voluntary return. Closing the application before settlement forfeits that run's unbanked rewards.
+Run Level resets each expedition and drives boon drafts, starting with a free opening choice. Separating it from Base Level keeps draft cadence the same for veterans and new characters. Run XP thresholds are 280 + 120 × (run level − 1) + 16 × (run level − 1)². Regular enemies drop amber yielding 10 run XP / 5 permanent XP and 3 amber upon collection; elites drop amber yielding 30 / 15 and 9 amber. Killing monsters does not directly grant XP—XP is acquired exclusively by collecting amber shards. XP earned in a run and collected amber settle once on victory, defeat, timeout or voluntary return. Closing the application before settlement forfeits that run's unbanked rewards.
 
-Base XP thresholds remain 60 + 35 × (level − 1) to preserve existing saves. Base Level caps at 99; each stat caps at 99. Invalid legacy allocations exceeding earned points are refunded rather than retained.
+Base XP thresholds are 300 + 100 × (level − 1) + 15 × (level − 1)². Existing saved levels, stat allocations and absolute banked XP are retained; progress toward the next level uses the new threshold. Base Level caps at 99; each stat caps at 99. Invalid legacy allocations exceeding earned points are refunded rather than retained.
 
 ## Fifteen-minute rhythm
 
@@ -39,7 +39,7 @@ Hordes apply continuous contact pressure without normal windup pauses or warning
   - `spawnImmuneUntil` (2.0s protection on expedition and boss arena entry; Dash never shortens this window)
 - **Swept Projectile Collision**: Hostile shots check closest point on swept trajectory segment to prevent tunneling at high game speeds.
 
-This pass uses continuous horde pressure and escalating survival decisions as inspiration from [Vampire Survivors](https://poncle.games/vampire-survivors), not its exact numeric formulas. The free opening boon remains; the next draft requires 14 common amber pickups instead of 5. Later thresholds grow quadratically. Permanent XP and amber per pickup stay unchanged, so increased kills can accelerate permanent earnings. Actual draft cadence and difficulty need playtesting.
+This pass uses continuous horde pressure and escalating survival decisions as inspiration from [Vampire Survivors](https://poncle.games/vampire-survivors), not its exact numeric formulas. The free opening boon remains; the next draft requires 28 common amber pickups. Run thresholds are doubled from the previous horde pass. Permanent progression starts at 60 common pickups per level (previously 12), with quadratic growth to slow later levels. Permanent XP and amber per pickup stay unchanged. Actual draft cadence and difficulty need playtesting.
 
 
 ## Open meadow layout

@@ -31,8 +31,10 @@ namespace Umbra
         }
 
         public static int ProjectileCount(RuneKind rune) => rune == RuneKind.Scatter ? 3 : 1;
-        public static int ExperienceToLevel(int level) => 60 + (level - 1) * 35;
-        public static int RunExperienceToLevel(int level) => 140 + (level - 1) * 60 + (level - 1) * (level - 1) * 8;
+        // Slower permanent growth across expeditions; existing levels and banked XP are retained.
+        public static int ExperienceToLevel(int level) => 300 + (level - 1) * 100 + (level - 1) * (level - 1) * 15;
+        // Free opening boon remains; first earned draft takes 28 common pickups (10 XP each).
+        public static int RunExperienceToLevel(int level) => 280 + (level - 1) * 120 + (level - 1) * (level - 1) * 16;
         // Fixed time-based pressure: progression never silently scales enemies to the player's build.
         public const float FieldHalfSize = 80f;
         public const float EnemyRecycleDistance = 40f;

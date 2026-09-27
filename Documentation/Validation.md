@@ -1,5 +1,11 @@
 # Validation — v0.2.4
 
+## Slower run and permanent progression — 2026-09-27
+
+Unity compilation and a fresh Play Mode smoke suite passed **329 checks**. Run XP thresholds are doubled; permanent thresholds now start at 300 XP and grow quadratically. Updated the first-draft boundary test to 28 common pickups. Eight additional checks cover the permanent threshold across successive runs, temporary reset, delayed settlement, multiple earned drafts, XP overflow, stat-point awards and duplicate settlement rejection. Save writes remain suppressed by the suite.
+
+For a level-1 profile collecting 300 common pickups without a victory bounty, the formula comparison changes run level 8 to 5 and permanent level 9 to 4. These are pickup-budget calculations, not measured full-run pacing. Existing saved levels and absolute XP are retained. Source whitespace validation passed. No full 15-minute balance playtest or WebGL rebuild/deployment was performed.
+
 Validated 2026-09-25 on Windows with Unity 6000.3.24f1, URP and the new Input System.
 
 ## Runtime integration
