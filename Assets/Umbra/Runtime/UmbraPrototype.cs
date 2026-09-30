@@ -156,8 +156,11 @@ namespace Umbra
 
         public bool TryAddStat(CombatRules.StatKind stat)
         {
-            if (Phase != RunPhase.Camp || StatPoints <= 0 || GetStat(stat) >= 99 || !Enum.IsDefined(typeof(CombatRules.StatKind), stat)) return false;
-            StatPoints--;
+            if (Phase != RunPhase.Camp || GetStat(stat) >= 99 || !Enum.IsDefined(typeof(CombatRules.StatKind), stat)) return false;
+            int cost = CombatRules.StatPointCost(GetStat(stat));
+            if (StatPoints < cost) return false;
+            StatPoints -= cost;
+
             switch (stat)
             {
                 case CombatRules.StatKind.STR: STR++; break;
@@ -175,7 +178,7 @@ namespace Umbra
         public void ResetStats()
         {
             if (Phase != RunPhase.Camp) return;
-            int spent = (STR - 1) + (AGI - 1) + (VIT - 1) + (INT - 1) + (DEX - 1) + (LUK - 1);
+            int spent = CombatRules.TotalStatPointsSpent(STR, AGI, VIT, INT, DEX, LUK);
             if (spent <= 0) return;
             StatPoints += spent;
             STR = AGI = VIT = INT = DEX = LUK = 1;
@@ -207,7 +210,7 @@ namespace Umbra
             DEX = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.DEX", 1), 1, 99);
             LUK = Mathf.Clamp(PlayerPrefs.GetInt("Umbra.LUK", 1), 1, 99);
             int totalEarned = (BaseLevel - 1) * CombatRules.StatPointsPerLevel;
-            int spent = (STR - 1) + (AGI - 1) + (VIT - 1) + (INT - 1) + (DEX - 1) + (LUK - 1);
+            int spent = CombatRules.TotalStatPointsSpent(STR, AGI, VIT, INT, DEX, LUK);
             if(spent > totalEarned) { STR=AGI=VIT=INT=DEX=LUK=1; spent=0; }
             StatPoints = totalEarned - spent;
             LoadCampaignProfile();

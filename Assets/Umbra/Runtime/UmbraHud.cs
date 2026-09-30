@@ -550,15 +550,20 @@ namespace Umbra
                 Label(570, y+13, Game.GetStat(s).ToString("00"), number, cream);
 
                 string desc = Loc.StatDescription(s, Game.STR, Game.AGI, Game.VIT, Game.INT, Game.DEX, Game.LUK);
-                Label(625, y+16, desc, small, muted, 390);
+                Label(625, y+16, desc, small, muted, 370);
 
-                if(hasPts)
+                int val = Game.GetStat(s);
+                int cost = CombatRules.StatPointCost(val);
+                bool canAfford = hasPts && Game.StatPoints >= cost && val < 99;
+                if(hasPts && val < 99)
                 {
-                    if(Button(new(1030, y+9, 65, 32), "+1", true))
+                    if(Button(new(1010, y+9, 85, 32), "+1 (" + cost + ")", canAfford))
                     {
-                        Game.TryAddStat(s);
+                        if(canAfford) Game.TryAddStat(s);
                     }
                 }
+                else if(val >= 99) Label(1025, y+15, "MAX", small, gold, 65);
+                else if(Game.Phase == RunPhase.Camp) Label(1020, y+15, cost + Loc.T(" pts"," แต้ม"), small, muted, 75);
             }
 
             if(Button(new(700, 672, 200, 42), Loc.T("CLOSE  [C]","ปิด  [C]"))) Game.StatsPanel = false;

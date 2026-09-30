@@ -24,6 +24,20 @@ namespace Umbra
         public static float ProjectileSpeedBonus(int dex) => (dex - 1) * 0.02f;
         public static float CritChance(int luk) => UnityEngine.Mathf.Min(.65f, .05f + (luk - 1) * 0.005f);
 
+        // Ragnarok Online stat upgrade point cost: floor((currentStat - 1) / 10) + 2
+        public static int StatPointCost(int currentStat) => (UnityEngine.Mathf.Max(1, currentStat) - 1) / 10 + 2;
+
+        public static int TotalStatPointsSpent(int stat)
+        {
+            int total = 0;
+            for (int v = 1; v < stat; v++) total += StatPointCost(v);
+            return total;
+        }
+
+        public static int TotalStatPointsSpent(int str, int agi, int vit, int intel, int dex, int luk) =>
+            TotalStatPointsSpent(str) + TotalStatPointsSpent(agi) + TotalStatPointsSpent(vit) +
+            TotalStatPointsSpent(intel) + TotalStatPointsSpent(dex) + TotalStatPointsSpent(luk);
+
         public static int Damage(RuneKind rune, int level, int str = 1, int dex = 1)
         {
             int baseDmg = (rune == RuneKind.Scatter ? 12 : 23) + UnityEngine.Mathf.Min(30, level - 1);

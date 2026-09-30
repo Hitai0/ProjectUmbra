@@ -50,7 +50,10 @@ namespace Umbra
                 EnterCamp();BaseLevel=1;Language=GameLanguage.English;Loc.Current=GameLanguage.English;STR=AGI=VIT=INT=DEX=LUK=1;StatPoints=0;ClearedMaps=0;Shards=0;SupplyRank=0;Class=HeroClass.Novice;SelectedMap=0;Rune=RuneKind.Pierce;
                 Check(!MapUnlocked(1)&&!ClassesUnlocked,"progression gates");
                 Check(!TryAddStat(CombatRules.StatKind.STR),"no unearned stat points");
-                BaseLevel=3;StatPoints=6;Check(TryAddStat(CombatRules.StatKind.VIT)&&VIT==2&&StatPoints==5,"camp allocation");
+                Check(CombatRules.StatPointCost(1)==2&&CombatRules.StatPointCost(10)==2&&CombatRules.StatPointCost(11)==3&&CombatRules.StatPointCost(20)==3&&CombatRules.StatPointCost(21)==4&&CombatRules.StatPointCost(91)==11,"RO stat point costs");
+                Check(CombatRules.TotalStatPointsSpent(1)==0&&CombatRules.TotalStatPointsSpent(2)==2&&CombatRules.TotalStatPointsSpent(11)==20&&CombatRules.TotalStatPointsSpent(12)==23,"RO total stat points spent");
+                StatPoints=1;Check(!TryAddStat(CombatRules.StatKind.STR)&&STR==1&&StatPoints==1,"insufficient stat points rejected");
+                BaseLevel=3;StatPoints=6;Check(TryAddStat(CombatRules.StatKind.VIT)&&VIT==2&&StatPoints==4,"camp allocation");
                 ResetStats();Check(VIT==1&&StatPoints==6,"free respec refund");
                 bool initMobile=IsMobile;ToggleMobileInput();Check(IsMobile!=initMobile,"mobile toggle switches state");ToggleMobileInput();Check(IsMobile==initMobile,"mobile toggle restores state");
                 var initLang=Language;ToggleLanguage();

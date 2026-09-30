@@ -1,5 +1,13 @@
 # Validation — v0.2.4
 
+## Ragnarok Online stat upgrade costs & creature facing — 2026-09-27
+
+Fresh compilation and Play Mode smoke tests passed **341 checks** (+3 stat checks).
+- **Mushroom creature facing**: Mirrored `mushroom_hd.png` horizontally to default to facing right, matching `sprout_hd.png` and all hero class sheets. `e.sprite.flipX = delta.x < 0;` now correctly turns the mushroom toward the player in all quadrants.
+- **Ragnarok Online stat upgrade costs**: Updated stat allocation cost from flat 1 point to the classic RO formula: $\lfloor (\text{Stat} - 1) / 10 \rfloor + 2$ (cost 2 at 1–10, cost 3 at 11–20, up to cost 11 at 91–99).
+- **Stat refunds & profile persistence**: `ResetStats()` and `LoadProfile()` compute cumulative spent points via `CombatRules.TotalStatPointsSpent()`.
+- **Character status UI**: Upgrading button shows cost `+1 (cost)`, disables when stat points are insufficient, shows next cost in muted text when out of points, and displays `MAX` at 99.
+
 ## Spirit particles — 2026-09-27
 
 Fresh compilation and Play Mode smoke tests passed **338 checks** (+9 particle checks). Verified the bounded shared pools, scaled combat/unscaled celebration clocks, supported particle shader, isolated cosmetic RNG, per-frame emission cap and clearing on combat reset. Inspected the real skill screenshot with Mend/Nova, lightning impact and pickup sparks. The draft screenshot covers the level-up particles, so it is not a clear visual validation of that burst. See `Particle_Effects.md` for hooks, limits and capture paths. No WebGL rebuild or device performance profiling was performed.
